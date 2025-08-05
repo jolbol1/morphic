@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter as FontSans } from 'next/font/google'
 
+import { ClerkProvider } from '@clerk/nextjs'
 import { Analytics } from '@vercel/analytics/next'
 
-import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
 import { SidebarProvider } from '@/components/ui/sidebar'
@@ -53,45 +53,35 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  let user = null
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (supabaseUrl && supabaseAnonKey) {
-    const supabase = await createClient()
-    const {
-      data: { user: supabaseUser }
-    } = await supabase.auth.getUser()
-    user = supabaseUser
-  }
-
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={cn(
-          'min-h-screen flex flex-col font-sans antialiased',
-          fontSans.variable
-        )}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body
+          className={cn(
+            'min-h-screen flex flex-col font-sans antialiased',
+            fontSans.variable
+          )}
         >
-          <SidebarProvider defaultOpen>
-            <AppSidebar />
-            <div className="flex flex-col flex-1">
-              <Header user={user} />
-              <main className="flex flex-1 min-h-0">
-                <ArtifactRoot>{children}</ArtifactRoot>
-              </main>
-            </div>
-          </SidebarProvider>
-          <Toaster />
-          <Analytics />
-        </ThemeProvider>
-      </body>
-    </html>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <SidebarProvider defaultOpen>
+              <AppSidebar />
+              <div className="flex flex-col flex-1">
+                <Header />
+                <main className="flex flex-1 min-h-0">
+                  <ArtifactRoot>{children}</ArtifactRoot>
+                </main>
+              </div>
+            </SidebarProvider>
+            <Toaster />
+            <Analytics />
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }

@@ -1,19 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { currentUser } from '@clerk/nextjs/server'
 
 export async function getCurrentUser() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null // Supabase is not configured
-  }
-
-  const supabase = await createClient()
-  const { data } = await supabase.auth.getUser()
-  return data.user ?? null
+  return await currentUser()
 }
 
 export async function getCurrentUserId() {
-  const user = await getCurrentUser()
+  const user = await currentUser()
   return user?.id
 }

@@ -1,15 +1,19 @@
 'use client'
 
+import { useUser } from '@clerk/nextjs'
 import { User2 } from 'lucide-react'
-
-import { useCurrentUserImage } from '@/hooks/use-current-user-image'
-import { useCurrentUserName } from '@/hooks/use-current-user-name'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
+import { Skeleton } from './ui/skeleton'
+
 export const CurrentUserAvatar = () => {
-  const profileImage = useCurrentUserImage()
-  const name = useCurrentUserName()
+  const { user, isLoaded } = useUser()
+
+  if (!isLoaded) return <Skeleton className="size-6 rounded-full" />
+
+  const profileImage = user?.imageUrl
+  const name = user?.fullName
   const initials = name
     ?.split(' ')
     ?.map(word => word[0])
