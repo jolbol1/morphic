@@ -3,21 +3,18 @@
 // import Link from 'next/link' // No longer needed directly here for Sign In button
 import React from 'react'
 
-import { User } from '@supabase/supabase-js'
+// import { Button } from './ui/button' // No longer needed directly here for Sign In button
+import { useUser } from '@clerk/nextjs'
 
 import { cn } from '@/lib/utils'
 
 import { useSidebar } from '@/components/ui/sidebar'
 
-// import { Button } from './ui/button' // No longer needed directly here for Sign In button
 import GuestMenu from './guest-menu' // Import the new GuestMenu component
 import UserMenu from './user-menu'
 
-interface HeaderProps {
-  user: User | null
-}
-
-export const Header: React.FC<HeaderProps> = ({ user }) => {
+export const Header: React.FC = () => {
+  const { user } = useUser()
   const { open } = useSidebar()
   return (
     <header
@@ -31,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({ user }) => {
       <div></div>
 
       <div className="flex items-center gap-2">
-        {user ? <UserMenu user={user} /> : <GuestMenu />}
+        {user ? <UserMenu /> : <GuestMenu />}
       </div>
     </header>
   )

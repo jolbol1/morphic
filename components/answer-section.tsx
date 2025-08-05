@@ -37,7 +37,8 @@ export function AnswerSection({
   reload,
   citationMaps
 }: AnswerSectionProps) {
-  const enableShare = process.env.NEXT_PUBLIC_SUPABASE_URL !== undefined
+  const enableShare =
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY !== undefined
 
   const handleReload = () => {
     if (reload) {
