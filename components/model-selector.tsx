@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, Lightbulb } from 'lucide-react'
 
 import { Model } from '@/lib/types/models'
 import { getCookie, setCookie } from '@/lib/utils/cookies'
@@ -34,7 +34,6 @@ export const providerImages = {
 
 function groupModelsByProvider(models: Model[]) {
   return models
-    .filter(model => model.enabled)
     .sort((a, b) => (a.overallRank ?? 0) - (b.overallRank ?? 0))
     .reduce(
       (groups, model) => {
@@ -116,7 +115,7 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                 className="bg-white rounded-full border"
               />
               <span className="text-xs font-medium">{selectedModel.name}</span>
-              {isReasoningModel(selectedModel) && (
+              {selectedModel.reasoning && (
                 <Lightbulb size={12} className="text-accent-blue-foreground" />
               )}
             </div>
