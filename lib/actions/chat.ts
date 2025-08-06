@@ -2,13 +2,16 @@
 
 import { revalidateTag } from 'next/cache'
 
+import { api } from '@/convex/_generated/api'
+import { Doc } from '@/convex/_generated/dataModel'
 import { generateChatTitle } from '@/lib/agents/title-generator'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import * as dbActions from '@/lib/db/actions'
-import type { Chat, Message } from '@/lib/db/schema'
+import type { Chat } from '@/lib/db/schema'
 import { generateId } from '@/lib/db/schema'
 import type { UIMessage } from '@/lib/types/ai'
 import { getTextFromParts } from '@/lib/utils/message-utils'
+import { fetchMutation } from 'convex/nextjs'
 
 // Constants
 const DEFAULT_CHAT_TITLE = 'Untitled'
@@ -38,7 +41,11 @@ export async function getChat(
 /**
  * Create a new chat
  */
-export async function createChat(id?: string, title?: string): Promise<Chat> {
+// CONVERTED TO CONVEX
+export async function createChat(
+  id?: string,
+  title?: string
+): Promise<Doc<'chats'>> {
   const userId = await getCurrentUserId()
   if (!userId) {
     throw new Error('User not authenticated')
@@ -48,6 +55,7 @@ export async function createChat(id?: string, title?: string): Promise<Chat> {
   const chatTitle = title || DEFAULT_CHAT_TITLE
 
   // Create chat
+  // CONVERTED TO CONVEX
   const chat = await dbActions.createChat({
     id: chatId,
     title: chatTitle.substring(0, 255),
@@ -65,10 +73,11 @@ export async function createChat(id?: string, title?: string): Promise<Chat> {
 /**
  * Create a new chat and save the first message
  */
+// CONVERTED TO CONVEX
 export async function createChatAndSaveMessage(
   message: UIMessage,
   title?: string
-): Promise<{ chat: Chat; message: Message }> {
+): Promise<{ chat: Doc<'chats'>; message: Doc<'messages'> }> {
   const userId = await getCurrentUserId()
   if (!userId) {
     throw new Error('User not authenticated')
@@ -96,19 +105,30 @@ export async function createChatAndSaveMessage(
     chatId
   })
 
+  const convexDbMessage = await fetchMutation(api.chat.upsertMessage, {
+    chatId,
+    id: messageId,
+    message
+  })
+
   // Revalidate cache
   revalidateTag(`chat-${chatId}`)
 
-  return { chat, message: dbMessage }
+  if (!convexDbMessage) {
+    throw new Error('Failed to save message')
+  }
+
+  return { chat, message: convexDbMessage }
 }
 
 /**
  * Save a message to an existing chat
  */
+// CONVERTED TO CONVEX
 export async function saveMessage(
   chatId: string,
   message: UIMessage
-): Promise<Message> {
+): Promise<Doc<'messages'>> {
   const userId = await getCurrentUserId()
   if (!userId) {
     throw new Error('User not authenticated')
@@ -126,11 +146,21 @@ export async function saveMessage(
     id: messageId,
     chatId
   })
+  // CONVERTED TO CONVEX
+  const convexDbMessage = await fetchMutation(api.chat.upsertMessage, {
+    chatId,
+    id: messageId,
+    message
+  })
 
   // Revalidate cache
   revalidateTag(`chat-${chatId}`)
 
-  return dbMessage
+  if (!convexDbMessage) {
+    throw new Error('Failed to save message')
+  }
+
+  return convexDbMessage
 }
 
 /**

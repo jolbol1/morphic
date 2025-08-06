@@ -11,9 +11,12 @@ import {
   mapUIMessageToDBMessage
 } from '@/lib/utils/message-mapping'
 
+import { api } from '@/convex/_generated/api'
+import { Doc } from '@/convex/_generated/dataModel'
+import { fetchMutation, fetchQuery } from 'convex/nextjs'
+import { db } from '.'
 import type { Chat, Message } from './schema'
 import { chats, generateId, messages, parts } from './schema'
-import { db } from '.'
 
 /**
  * Create a new chat
@@ -28,7 +31,19 @@ export async function createChat({
   title: string
   userId: string
   visibility?: 'public' | 'private'
-}): Promise<Chat> {
+}): Promise<Doc<'chats'>> {
+  const convexChat = await fetchMutation(api.chat.createChat, {
+    title,
+    userId,
+    visibility,
+    chatId: id
+  })
+
+  if (!convexChat) {
+    throw new Error('Failed to create convex chat')
+  }
+
+  // NEON: Remove when done.
   const [chat] = await db
     .insert(chats)
     .values({
@@ -42,7 +57,7 @@ export async function createChat({
   // Invalidate cache for this chat
   chatCache.deletePattern(`${id}-`)
 
-  return chat
+  return convexChat
 }
 
 /**
@@ -51,27 +66,35 @@ export async function createChat({
 export async function getChat(
   chatId: string,
   userId?: string
-): Promise<Chat | null> {
-  const [chat] = await db
-    .select()
-    .from(chats)
-    .where(eq(chats.id, chatId))
-    .limit(1)
+): Promise<Doc<'chats'> | null> {
+  const convexChat = await fetchQuery(api.chat.getChat, {
+    chatId,
+    userId
+  })
 
-  if (!chat) {
-    return null
-  }
+  return convexChat
 
-  // Permission check
-  if (chat.visibility === 'public') {
-    return chat
-  }
+  // NEON: Remove when done.
+  // const [chat] = await db
+  //   .select()
+  //   .from(chats)
+  //   .where(eq(chats.id, chatId))
+  //   .limit(1)
 
-  if (chat.visibility === 'private' && userId && chat.userId === userId) {
-    return chat
-  }
+  // if (!chat) {
+  //   return null
+  // }
 
-  return null
+  // // Permission check
+  // if (chat.visibility === 'public') {
+  //   return chat
+  // }
+
+  // if (chat.visibility === 'private' && userId && chat.userId === userId) {
+  //   return chat
+  // }
+
+  // return null
 }
 
 /**
