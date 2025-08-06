@@ -11,9 +11,9 @@ const DEFAULT_MODEL: Model = {
   id: 'anthropic/claude-sonnet-4',
   name: 'Claude Sonnet 4',
   provider: 'Anthropic',
-  providerId: 'anthropic',
-  enabled: true,
-  toolCallType: 'native'
+  providerId: 'openrouter',
+  toolCallType: 'native',
+  reasoning: true
 }
 
 export async function POST(req: Request) {
