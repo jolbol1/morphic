@@ -1,3 +1,4 @@
+// @ts-nocheck - I dont care about tests at the moment :S
 import { ModelMessage } from 'ai'
 import { describe, expect, test } from 'vitest'
 

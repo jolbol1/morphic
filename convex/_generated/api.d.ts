@@ -15,7 +15,6 @@ import type {
 } from "convex/server";
 import type * as chat from "../chat.js";
 import type * as crons from "../crons.js";
-import type * as mappingNew from "../mappingNew.js";
 import type * as mappings from "../mappings.js";
 import type * as models from "../models.js";
 
@@ -30,7 +29,6 @@ import type * as models from "../models.js";
 declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   crons: typeof crons;
-  mappingNew: typeof mappingNew;
   mappings: typeof mappings;
   models: typeof models;
 }>;
