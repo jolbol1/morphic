@@ -1,3 +1,4 @@
+// TODO: fix types
 import type { UIMessage } from '@/lib/types/ai'
 import type { DynamicToolPart } from '@/lib/types/dynamic-tools'
 import type {
