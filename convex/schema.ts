@@ -240,5 +240,35 @@ export default defineSchema({
     )
   )
     .index('by_message_id', ['messageId'])
-    .index('by_message_id_and_order', ['messageId', 'order'])
+    .index('by_message_id_and_order', ['messageId', 'order']),
+  models: defineTable({
+    modelId: v.string(),
+    name: v.string(),
+    description: v.string(),
+    inputModalities: v.array(v.string()),
+    outputModalities: v.array(v.string()),
+    pricing: v.object({
+      prompt: v.string(),
+      completion: v.string(),
+      image: v.string(),
+      request: v.string()
+    }),
+    contextLength: v.optional(v.number()),
+    supportedParameters: v.array(v.string()),
+    lastUpdated: v.number(),
+    programmingRanking: v.optional(v.number()),
+    marketingRanking: v.optional(v.number()),
+    seoRanking: v.optional(v.number()),
+    overallRanking: v.optional(v.number())
+  })
+    .index('byModelId', ['modelId'])
+    .index('by_supported_parameters', ['supportedParameters'])
+    .index('by_supported_parameters_modelId', [
+      'supportedParameters',
+      'modelId'
+    ])
+    .index('by_overall_ranking', ['overallRanking'])
+    .index('by_programming_ranking', ['programmingRanking'])
+    .index('by_marketing_ranking', ['marketingRanking'])
+    .index('by_seo_ranking', ['seoRanking'])
 })
