@@ -1,13 +1,13 @@
 import type { UIMessage } from 'ai'
 
+import { Doc } from '@/convex/_generated/dataModel'
 import {
   createChat,
   deleteMessagesFromIndex,
   getChat as getChatAction,
   saveMessage
 } from '@/lib/actions/chat'
-import type { Chat } from '@/lib/db/schema'
-import { generateId } from '@/lib/db/schema'
+import { createId } from '@paralleldrive/cuid2'
 
 // Constants
 const DEFAULT_CHAT_TITLE = 'New Chat'
@@ -76,7 +76,7 @@ export async function prepareMessagesForSubmission(
   chatId: string,
   userId: string,
   message: UIMessage,
-  chat: Chat | null
+  chat: Doc<'chats'> | null
 ): Promise<UIMessage[]> {
   if (!message) {
     throw new Error('No message provided')
@@ -85,7 +85,7 @@ export async function prepareMessagesForSubmission(
   // Save the message
   const messageWithId = {
     ...message,
-    id: message.id || generateId()
+    id: message.id || createId()
   }
 
   // If chat doesn't exist, create it with a temporary title

@@ -1,4 +1,4 @@
-import { Chat } from '@/lib/db/schema'
+import { Doc } from '@/convex/_generated/dataModel'
 import { UIMessage } from '@/lib/types/ai'
 
 // LRU cache entry type
@@ -152,10 +152,9 @@ const getCacheConfig = () => {
 
 // Cache instances with configurable TTLs and size limits
 const config = getCacheConfig()
-export const chatCache = new MemoryCache<Chat & { messages: UIMessage[] }>(
-  config.ttl,
-  config.maxEntries
-)
+export const chatCache = new MemoryCache<
+  Doc<'chats'> & { messages: UIMessage[] }
+>(config.ttl, config.maxEntries)
 
 // Store interval reference for cleanup
 let cleanupInterval: NodeJS.Timeout | null = null

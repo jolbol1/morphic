@@ -6,8 +6,8 @@ import {
   getChat as getChatAction,
   saveMessage
 } from '@/lib/actions/chat'
-import { generateId } from '@/lib/db/schema'
 
+import { createId } from '@paralleldrive/cuid2'
 import type { StreamContext } from './types'
 
 const DEFAULT_CHAT_TITLE = 'Untitled'
@@ -73,7 +73,7 @@ export async function prepareMessages(
 
     const messageWithId = {
       ...message,
-      id: message.id || generateId()
+      id: message.id || createId()
     }
 
     if (!initialChat) {

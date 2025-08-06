@@ -347,18 +347,16 @@ export const getChatMessages = query({
 export const deleteMessagesByChatIdAfterTimestamp = mutation({
   args: v.object({
     chatId: v.string(),
-    timestamp: v.string()
+    timestamp: v.number()
   }),
   handler: async (ctx, args) => {
     const { chatId, timestamp } = args
     const chat_id = await convertChatIdtoChat_id(ctx, chatId)
 
-    const timestampToUnixMs = new Date(timestamp).getTime()
-
     const messagesToDelete = await ctx.db
       .query('messages')
       .withIndex('by_chat_id', q => q.eq('chatId', chat_id))
-      .filter(q => q.gte(q.field('_creationTime'), timestampToUnixMs))
+      .filter(q => q.gte(q.field('_creationTime'), timestamp))
       .collect()
 
     if (messagesToDelete.length === 0) {
@@ -509,6 +507,10 @@ export const shareChat = mutation({
     })
 
     const updatedChat = await ctx.db.get(chat._id)
+
+    if (!updatedChat) {
+      throw new Error('Failed to share chat')
+    }
 
     return {
       ...updatedChat,

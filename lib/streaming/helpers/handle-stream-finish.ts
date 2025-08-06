@@ -3,10 +3,10 @@ import { UIMessage, UIMessageStreamWriter } from 'ai'
 import { saveMessage } from '@/lib/actions/chat'
 import { generateRelatedQuestions } from '@/lib/agents/generate-related-questions'
 import { updateChatTitle } from '@/lib/db/actions'
-import { generateId } from '@/lib/db/schema'
 import { hasToolCalls } from '@/lib/utils/message-utils'
 import { retryDatabaseOperation } from '@/lib/utils/retry'
 
+import { createId } from '@paralleldrive/cuid2'
 import type { StreamContext } from './types'
 
 const DEFAULT_CHAT_TITLE = 'Untitled'
@@ -22,7 +22,7 @@ export async function handleStreamFinish(
 
   // Generate related questions if there are tool calls
   if (hasToolCalls(responseMessage as UIMessage | null)) {
-    const questionPartId = generateId()
+    const questionPartId = createId()
 
     try {
       writer.write({

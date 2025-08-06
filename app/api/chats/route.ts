@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { Doc } from '@/convex/_generated/dataModel'
 import { getChatsPage } from '@/lib/actions/chat-db'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
-import { Chat as DBChat } from '@/lib/db/schema'
 
 interface ChatPageResponse {
-  chats: DBChat[]
+  chats: Doc<'chats'>[]
   nextOffset: number | null
 }
 

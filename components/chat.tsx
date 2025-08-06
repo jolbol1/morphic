@@ -6,7 +6,6 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { toast } from 'sonner'
 
-import { generateId } from '@/lib/db/schema'
 import { UploadedFile } from '@/lib/types'
 import type { UIMessage } from '@/lib/types/ai'
 import {
@@ -19,6 +18,7 @@ import { cn } from '@/lib/utils'
 
 import { useFileDropzone } from '@/hooks/use-file-dropzone'
 
+import { createId } from '@paralleldrive/cuid2'
 import { ChatMessages } from './chat-messages'
 import { ChatPanel } from './chat-panel'
 import { DragOverlay } from './drag-overlay'
@@ -99,7 +99,7 @@ export function Chat({
       toast.error(`Error in chat: ${error.message}`)
     },
     experimental_throttle: 100,
-    generateId
+    generateId: createId
   })
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

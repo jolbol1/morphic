@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { parts } from '@/lib/db/schema'
+import { Doc } from '@/convex/_generated/dataModel'
 import type { UIMessage } from '@/lib/types/ai'
 
 // Metadata schema
@@ -15,8 +15,8 @@ export type DataPart = z.infer<typeof dataPartSchema>
 export type ProviderMetadata = Record<string, any>
 
 // DB type definitions
-export type DBMessagePart = typeof parts.$inferInsert
-export type DBMessagePartSelect = typeof parts.$inferSelect
+export type DBMessagePart = Doc<'parts'>
+export type DBMessagePartSelect = Doc<'parts'>
 
 // Tool states
 export type ToolState =

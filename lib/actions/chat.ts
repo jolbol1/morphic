@@ -7,10 +7,9 @@ import { Doc } from '@/convex/_generated/dataModel'
 import { generateChatTitle } from '@/lib/agents/title-generator'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import * as dbActions from '@/lib/db/actions'
-import type { Chat } from '@/lib/db/schema'
-import { generateId } from '@/lib/db/schema'
 import type { UIMessage } from '@/lib/types/ai'
 import { getTextFromParts } from '@/lib/utils/message-utils'
+import { createId } from '@paralleldrive/cuid2'
 import { fetchMutation } from 'convex/nextjs'
 
 // Constants
@@ -51,7 +50,7 @@ export async function createChat(
     throw new Error('User not authenticated')
   }
 
-  const chatId = id || generateId()
+  const chatId = id || createId()
   const chatTitle = title || DEFAULT_CHAT_TITLE
 
   // Create chat
@@ -83,8 +82,8 @@ export async function createChatAndSaveMessage(
     throw new Error('User not authenticated')
   }
 
-  const chatId = generateId()
-  const messageId = message.id || generateId()
+  const chatId = createId()
+  const messageId = message.id || createId()
 
   // Extract title from message if not provided
   const chatTitle =
@@ -133,7 +132,7 @@ export async function saveMessage(
     throw new Error('Chat not found or unauthorized')
   }
 
-  const messageId = message.id || generateId()
+  const messageId = message.id || createId()
   const dbMessage = await dbActions.upsertMessage({
     ...message,
     id: messageId,
@@ -265,7 +264,7 @@ export async function deleteMessagesFromIndex(
  * @param modelId The model ID to use for title generation
  */
 export async function saveChatTitle(
-  chat: Chat | null,
+  chat: Doc<'chats'> | null,
   chatId: string,
   message: UIMessage | null,
   modelId: string
