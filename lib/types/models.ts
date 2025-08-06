@@ -9,4 +9,5 @@ export interface Model {
   reasoning?: boolean
   toolCallType: 'native' | 'manual'
   overallRank?: number
+  reasoning?: boolean
 }
