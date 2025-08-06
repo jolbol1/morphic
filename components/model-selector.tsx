@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useEffect, useState } from 'react'
 
 import { Check, ChevronsUpDown } from 'lucide-react'
 
@@ -86,7 +86,7 @@ export function ModelSelector({ models }: ModelSelectorProps) {
           {selectedModel ? (
             <div className="flex items-center space-x-1">
               <Image
-                src={`/providers/logos/${selectedModel.providerId}.svg`}
+                src={`/providers/logos/${selectedModel.provider.toLowerCase()}.svg`}
                 alt={selectedModel.provider}
                 width={18}
                 height={18}
@@ -118,7 +118,7 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                     >
                       <div className="flex items-center space-x-2">
                         <Image
-                          src={`/providers/logos/${model.providerId}.svg`}
+                          src={`/providers/logos/${model.provider.toLowerCase()}.svg`}
                           alt={model.provider}
                           width={18}
                           height={18}

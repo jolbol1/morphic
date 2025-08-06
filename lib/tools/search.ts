@@ -30,6 +30,14 @@ export function createSearchTool(fullModel: string) {
       },
       context
     ) => {
+      console.log('[createSearchTool] query', {
+        query,
+        type,
+        content_types,
+        max_results,
+        search_depth
+      })
+
       // Ensure max_results is at least 10
       const minResults = 10
       const effectiveMaxResults = Math.max(

@@ -181,6 +181,7 @@ export function mapUIMessagePartsToDBParts(
       case 'file':
         return {
           ...basePart,
+          type: part.type,
           file_mediaType: part.mediaType,
           file_filename: part.filename,
           file_url: part.url
@@ -189,6 +190,7 @@ export function mapUIMessagePartsToDBParts(
       case 'source-url':
         return {
           ...basePart,
+          type: part.type,
           source_url_sourceId: part.sourceId,
           source_url_url: part.url,
           source_url_title: part.title
@@ -197,6 +199,7 @@ export function mapUIMessagePartsToDBParts(
       case 'source-document':
         return {
           ...basePart,
+          type: part.type,
           source_document_sourceId: part.sourceId,
           source_document_mediaType: part.mediaType,
           source_document_title: part.title,
@@ -272,7 +275,10 @@ export function mapUIMessagePartsToDBParts(
       // Step parts (for UI tracking)
       case 'step-start':
         // Persist step-start to maintain message structure
-        return basePart
+        return {
+          ...basePart,
+          type: 'step-start'
+        }
 
       case 'step-result':
       case 'step-continue':
@@ -345,6 +351,7 @@ export function mapUIMessagePartsToDBParts(
           const dataType = part.type.substring(5) // Remove 'data-' prefix
           return {
             ...basePart,
+            type: part.type,
             data_prefix: dataType,
             data_content: 'data' in part ? part.data : part,
             data_id: 'id' in part ? part.id : undefined
@@ -354,6 +361,7 @@ export function mapUIMessagePartsToDBParts(
         // Unknown part type - store as data
         return {
           ...basePart,
+          type: part.type,
           data_prefix: part.type,
           data_content: part
         }
