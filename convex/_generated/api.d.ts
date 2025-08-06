@@ -14,8 +14,9 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as chat from "../chat.js";
-import type * as mappingNew from "../mappingNew.js";
+import type * as crons from "../crons.js";
 import type * as mappings from "../mappings.js";
+import type * as models from "../models.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -27,8 +28,9 @@ import type * as mappings from "../mappings.js";
  */
 declare const fullApi: ApiFromModules<{
   chat: typeof chat;
-  mappingNew: typeof mappingNew;
+  crons: typeof crons;
   mappings: typeof mappings;
+  models: typeof models;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,
