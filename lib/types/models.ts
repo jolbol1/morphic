@@ -5,4 +5,5 @@ export interface Model {
   providerId: string
   toolCallType: 'native' | 'manual'
   overallRank?: number
+  reasoning?: boolean
 }
