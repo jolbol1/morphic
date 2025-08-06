@@ -21,18 +21,32 @@ import {
 } from './ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
+export const providerImages = {
+  openrouter: '/providers/logos/openrouter.svg',
+  anthropic: '/providers/logos/anthropic.svg',
+  'x-ai': '/providers/logos/xai.svg',
+  google: '/providers/logos/google.svg',
+  openai: '/providers/logos/openai.svg',
+  deepseek: '/providers/logos/deepseek.svg',
+  qwen: '/providers/logos/qwen.svg',
+  kimi: '/providers/logos/kimi.png'
+}
+
 function groupModelsByProvider(models: Model[]) {
-  return models.reduce(
-    (groups, model) => {
-      const provider = model.provider
-      if (!groups[provider]) {
-        groups[provider] = []
-      }
-      groups[provider].push(model)
-      return groups
-    },
-    {} as Record<string, Model[]>
-  )
+  return models
+    .filter(model => model.enabled)
+    .sort((a, b) => (a.overallRank ?? 0) - (b.overallRank ?? 0))
+    .reduce(
+      (groups, model) => {
+        const provider = model.provider
+        if (!groups[provider]) {
+          groups[provider] = []
+        }
+        groups[provider].push(model)
+        return groups
+      },
+      {} as Record<string, Model[]>
+    )
 }
 
 interface ModelSelectorProps {
@@ -73,6 +87,11 @@ export function ModelSelector({ models }: ModelSelectorProps) {
 
   const selectedModel = models.find(model => createModelId(model) === value)
   const groupedModels = groupModelsByProvider(models)
+  const topRankedModels = models
+    .sort((a, b) => (a.overallRank ?? 0) - (b.overallRank ?? 0))
+    .slice(0, 10)
+
+  const topRankedGroup = ['Top Ranked', topRankedModels] as [string, Model[]]
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -86,7 +105,11 @@ export function ModelSelector({ models }: ModelSelectorProps) {
           {selectedModel ? (
             <div className="flex items-center space-x-1">
               <Image
-                src={`/providers/logos/${selectedModel.provider.toLowerCase()}.svg`}
+                src={
+                  providerImages[
+                    selectedModel.provider as keyof typeof providerImages
+                  ] ?? '/providers/logos/openrouter.svg'
+                }
                 alt={selectedModel.provider}
                 width={18}
                 height={18}
@@ -105,39 +128,53 @@ export function ModelSelector({ models }: ModelSelectorProps) {
           <CommandInput placeholder="Search models..." />
           <CommandList>
             <CommandEmpty>No model found.</CommandEmpty>
-            {Object.entries(groupedModels).map(([provider, models]) => (
-              <CommandGroup key={provider} heading={provider}>
-                {models.map(model => {
-                  const modelId = createModelId(model)
-                  return (
-                    <CommandItem
-                      key={modelId}
-                      value={modelId}
-                      onSelect={handleModelSelect}
-                      className="flex justify-between"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <Image
-                          src={`/providers/logos/${model.provider.toLowerCase()}.svg`}
-                          alt={model.provider}
-                          width={18}
-                          height={18}
-                          className="bg-white rounded-full border"
+            {[topRankedGroup, ...Object.entries(groupedModels)].map(
+              ([provider, models]) => (
+                <CommandGroup key={provider} heading={provider}>
+                  {models.map(model => {
+                    let modelId = createModelId(model)
+                    let modelId2
+                    if (
+                      topRankedGroup[1].includes(model) &&
+                      provider === 'Top Ranked'
+                    ) {
+                      modelId2 = modelId + '-second'
+                    }
+
+                    return (
+                      <CommandItem
+                        key={modelId2 ?? modelId}
+                        value={modelId}
+                        onSelect={handleModelSelect}
+                        className="flex justify-between"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Image
+                            src={
+                              providerImages[
+                                model.provider as keyof typeof providerImages
+                              ] ?? '/providers/logos/openrouter.svg'
+                            }
+                            alt={model.provider}
+                            width={18}
+                            height={18}
+                            className="bg-white rounded-full border"
+                          />
+                          <span className="text-xs font-medium">
+                            {model.name}
+                          </span>
+                        </div>
+                        <Check
+                          className={`h-4 w-4 ${
+                            value === modelId ? 'opacity-100' : 'opacity-0'
+                          }`}
                         />
-                        <span className="text-xs font-medium">
-                          {model.name}
-                        </span>
-                      </div>
-                      <Check
-                        className={`h-4 w-4 ${
-                          value === modelId ? 'opacity-100' : 'opacity-0'
-                        }`}
-                      />
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            ))}
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              )
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

@@ -1,3 +1,4 @@
+import { Model } from '@/lib/types/models'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import {
@@ -313,5 +314,29 @@ export const searchModels = query({
         model.description.toLowerCase().includes(searchLower) ||
         model.modelId.toLowerCase().includes(searchLower)
     )
+  }
+})
+
+export const getModelsForAPI = query({
+  handler: async ctx => {
+    const models = await ctx.db
+      .query('models')
+      .withIndex('by_overall_ranking')
+      .order('asc')
+      .collect()
+
+    const modelsForAPI = models.map(model => ({
+      id: model.modelId,
+      name: model.name,
+      provider: model.modelId.split('/')[0],
+      providerId: 'openrouter',
+      enabled: true,
+      overallRank: model.overallRanking,
+      toolCallType: model.supportedParameters.includes('tools')
+        ? 'native'
+        : 'manual'
+    })) as Model[]
+
+    return modelsForAPI
   }
 })
