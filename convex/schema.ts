@@ -191,6 +191,26 @@ export default defineSchema({
         providerMetadata: v.optional(v.any())
       }),
 
+      // Dynamic tool parts (alternative format)
+      v.object({
+        messageId: v.string(),
+        order: v.number(),
+        type: v.literal('dynamic-tool'),
+        tool_toolCallId: v.string(),
+        tool_state: v.union(
+          v.literal('input-streaming'),
+          v.literal('input-available'),
+          v.literal('output-available'),
+          v.literal('output-error')
+        ),
+        tool_errorText: v.optional(v.string()),
+        tool_dynamic_input: v.optional(v.any()),
+        tool_dynamic_output: v.optional(v.any()),
+        tool_dynamic_name: v.string(),
+        tool_dynamic_type: v.string(),
+        providerMetadata: v.optional(v.any())
+      }),
+
       // Data parts (generic support)
       v.object({
         messageId: v.string(),
