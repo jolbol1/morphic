@@ -5,6 +5,9 @@ import { openai } from '@ai-sdk/openai'
 import { xai } from '@ai-sdk/xai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createProviderRegistry, LanguageModel } from 'ai'
+type GatewayModels = Parameters<
+  ReturnType<typeof createGateway>['languageModel']
+>[0]
 
 export const registry = createProviderRegistry({
   openai,
@@ -19,18 +22,12 @@ export const registry = createProviderRegistry({
     ...openai,
     ...createOpenRouter({
       compatibility: 'strict',
-      extraBody: {
-        reasoning: {
-          effort: 'high'
-        }
-      },
       apiKey: process.env.OPENROUTER_API_KEY
     })
   }
 })
 
 export function getModel(model: string): LanguageModel {
-  registry.languageModel()
   return registry.languageModel(
     model as Parameters<typeof registry.languageModel>[0]
   )

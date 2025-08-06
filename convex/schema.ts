@@ -242,11 +242,12 @@ export default defineSchema({
     .index('by_message_id', ['messageId'])
     .index('by_message_id_and_order', ['messageId', 'order']),
   models: defineTable({
-    modelId: v.string(),
+    openrouterId: v.string(),
     name: v.string(),
     description: v.string(),
     inputModalities: v.array(v.string()),
     outputModalities: v.array(v.string()),
+    gatewayId: v.optional(v.string()),
     pricing: v.object({
       prompt: v.string(),
       completion: v.string(),
@@ -261,11 +262,16 @@ export default defineSchema({
     seoRanking: v.optional(v.number()),
     overallRanking: v.optional(v.number())
   })
-    .index('byModelId', ['modelId'])
+    .index('by_openrouter_id', ['openrouterId'])
     .index('by_supported_parameters', ['supportedParameters'])
-    .index('by_supported_parameters_modelId', [
+    .index('by_supported_parameters_openrouter_id', [
       'supportedParameters',
-      'modelId'
+      'openrouterId'
+    ])
+    .index('by_gateway_id', ['gatewayId'])
+    .index('by_supported_parameters_gateway_id', [
+      'supportedParameters',
+      'gatewayId'
     ])
     .index('by_overall_ranking', ['overallRanking'])
     .index('by_programming_ranking', ['programmingRanking'])

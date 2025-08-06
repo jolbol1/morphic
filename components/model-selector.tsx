@@ -36,7 +36,8 @@ export const providerImages = {
   openai: '/providers/logos/openai.svg',
   deepseek: '/providers/logos/deepseek.svg',
   qwen: '/providers/logos/qwen.svg',
-  kimi: '/providers/logos/kimi.png'
+  kimi: '/providers/logos/kimi.png',
+  gateway: '/providers/logos/gateway.svg'
 }
 
 function groupModelsByProvider(models: Model[]) {
@@ -248,6 +249,36 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                                   </TooltipContent>
                                 </Tooltip>
                               )}
+
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <div
+                                    className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-md text-[var(--color)] dark:text-[var(--color-dark)]"
+                                    style={
+                                      {
+                                        '--color-dark': 'hsl(0 0% 100%)',
+                                        '--color': 'hsl(0 0% 100%)'
+                                      } as React.CSSProperties
+                                    }
+                                  >
+                                    <div className="absolute inset-0 bg-current opacity-80 dark:opacity-75" />
+                                    <Image
+                                      src={
+                                        model.providerId === 'gateway'
+                                          ? '/providers/logos/gateway.svg'
+                                          : '/providers/logos/openrouter.svg'
+                                      }
+                                      alt={'Gateway'}
+                                      width={18}
+                                      height={18}
+                                      className="z-10"
+                                    />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Model provided by {model.providerId}</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </>
                           </div>
                         </div>
