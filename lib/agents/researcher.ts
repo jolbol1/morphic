@@ -72,10 +72,12 @@ For complex queries requiring systematic investigation:
 
 export function researcher({
   model,
+  supportsTools,
   abortSignal,
   writer
 }: {
   model: string
+  supportsTools?: boolean
   abortSignal?: AbortSignal
   writer?: UIMessageStreamWriter
 }) {
@@ -109,8 +111,8 @@ export function researcher({
     return new Agent({
       model: getModel(model),
       system: `${SYSTEM_PROMPT}\nCurrent date and time: ${currentDate}`,
-      tools,
-      activeTools: activeToolsList,
+      // TODO: I wonder if theres a way to get another model to make the tool call, but the main one to think
+      ...(supportsTools && { tools, activeTools: activeToolsList }),
       stopWhen: stepCountIs(20),
       abortSignal
     })
