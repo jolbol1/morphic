@@ -3,7 +3,7 @@ import { ToolCallPart, UIMessage } from 'ai'
 import { v } from 'convex/values'
 import { Id } from './_generated/dataModel'
 import { mutation, query, QueryCtx } from './_generated/server'
-import { mapUIMessagePartsToDBParts } from './mappings'
+import { buildUIMessageFromDB, mapUIMessagePartsToDBParts } from './mappings'
 import schema from './schema'
 
 export const createChat = mutation({
@@ -443,5 +443,205 @@ export const shareChat = mutation({
       ...updatedChat,
       sharePath: `/share/${chatId}`
     }
+  }
+})
+
+export const loadChat = query({
+  args: v.object({
+    chatId: v.string()
+  }),
+  handler: async (ctx, args) => {
+    const realChatId = await convertChatIdtoChat_id(ctx, args.chatId)
+
+    const messages = await ctx.db
+      .query('messages')
+      .withIndex('by_chat_id', q => q.eq('chatId', realChatId))
+      .order('asc')
+      .collect()
+
+    const messagesWithParts = await Promise.all(
+      messages.map(async message => {
+        const parts = await ctx.db
+          .query('parts')
+          .withIndex('by_message_id', q => q.eq('messageId', message.id))
+          .collect()
+
+        const sortedOrderParts = parts.sort((a, b) => a.order - b.order)
+
+        return buildUIMessageFromDB(message, sortedOrderParts)
+      })
+    )
+    return messagesWithParts
+  }
+})
+
+export const loadChatWithMessages = query({
+  args: v.object({
+    chatId: v.string(),
+    userId: v.optional(v.string())
+  }),
+  handler: async (ctx, args) => {
+    const { chatId, userId } = args
+
+    const chat = await ctx.db
+      .query('chats')
+      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
+      .unique()
+
+    if (!chat) {
+      return null
+    }
+
+    // Permission check
+    if (chat.visibility === 'private' && (!userId || chat.userId !== userId)) {
+      return null
+    }
+
+    const messages = await ctx.db
+      .query('messages')
+      .withIndex('by_chat_id', q => q.eq('chatId', chat._id))
+      .order('asc')
+      .collect()
+
+    const messagesWithParts = await Promise.all(
+      messages.map(async message => {
+        const parts = await ctx.db
+          .query('parts')
+          .withIndex('by_message_id', q => q.eq('messageId', message.id))
+          .collect()
+
+        const sortedOrderParts = parts.sort((a, b) => a.order - b.order)
+
+        return buildUIMessageFromDB(message, sortedOrderParts)
+      })
+    )
+
+    const result = { ...chat, messages: messagesWithParts }
+    return result
+  }
+})
+
+export const deleteMessagesAfter = mutation({
+  args: v.object({
+    chatId: v.string(),
+    messageId: v.string()
+  }),
+  handler: async (ctx, args) => {
+    const { chatId, messageId } = args
+
+    const realChatID = await convertChatIdtoChat_id(ctx, chatId)
+
+    const messages = await ctx.db
+      .query('messages')
+      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .collect()
+
+    const targetMessage = messages.find(m => m.id === messageId)
+
+    if (!targetMessage) {
+      return { count: 0 }
+    }
+
+    const messagesToDelete = await ctx.db
+      .query('messages')
+      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .filter(q => q.gte(q.field('_creationTime'), targetMessage._creationTime))
+      .collect()
+
+    const messageIds = messagesToDelete.map(m => m._id)
+
+    if (messageIds.length > 0) {
+      await Promise.all(messageIds.map(id => ctx.db.delete(id)))
+    }
+
+    return { count: messageIds.length }
+  }
+})
+
+export const deleteMessagesFromIndex = mutation({
+  args: v.object({
+    chatId: v.string(),
+    messageId: v.string()
+  }),
+  handler: async (ctx, args) => {
+    const { chatId, messageId } = args
+
+    const realChatID = await convertChatIdtoChat_id(ctx, chatId)
+
+    const allMessages = await ctx.db
+      .query('messages')
+      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .collect()
+
+    const messageIndex = allMessages.findIndex(m => m.id === messageId)
+
+    if (messageIndex === -1) {
+      return { count: 0 }
+    }
+
+    // Get messages to delete (from index onwards)
+    const messagesToDelete = allMessages.slice(messageIndex)
+    const messageIds = messagesToDelete.map(m => m._id)
+
+    if (messageIds.length > 0) {
+      await Promise.all(messageIds.map(id => ctx.db.delete(id)))
+    }
+
+    return { count: messageIds.length }
+  }
+})
+
+export const updateChatVisibility = mutation({
+  args: v.object({
+    chatId: v.string(),
+    userId: v.string(),
+    visibility: v.union(v.literal('public'), v.literal('private'))
+  }),
+  handler: async (ctx, args) => {
+    const { chatId, userId, visibility } = args
+
+    const realChatID = await convertChatIdtoChat_id(ctx, chatId)
+
+    const chat = await ctx.db
+      .query('chats')
+      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .unique()
+
+    if (!chat || chat.userId !== userId) {
+      return null
+    }
+
+    await ctx.db.patch(chat._id, {
+      visibility: visibility
+    })
+
+    return await ctx.db.get(chat._id)
+  }
+})
+
+export const updateChatTitle = mutation({
+  args: v.object({
+    chatId: v.string(),
+    title: v.string()
+  }),
+  handler: async (ctx, args) => {
+    const { chatId, title } = args
+
+    const realChatID = await convertChatIdtoChat_id(ctx, chatId)
+
+    const chat = await ctx.db
+      .query('chats')
+      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .unique()
+
+    if (!chat) {
+      return null
+    }
+
+    await ctx.db.patch(chat._id, {
+      title: title
+    })
+
+    return await ctx.db.get(chat._id)
   }
 })

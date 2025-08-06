@@ -6,6 +6,7 @@ import type {
   DBMessagePartSelect,
   ToolState
 } from '@/lib/types/message-persistence'
+import { Doc } from './_generated/dataModel'
 
 // Define local types for message parts that are compatible with the AI SDK
 type TextUIPart = { type: 'text'; text: string; providerMetadata?: any }
@@ -336,9 +337,7 @@ export function mapUIMessagePartsToDBParts(
 /**
  * Convert DB message parts to UI format
  */
-export function mapDBPartToUIMessagePart(
-  part: DBMessagePartSelect
-): UIMessagePart {
+export function mapDBPartToUIMessagePart(part: Doc<'parts'>): UIMessagePart {
   switch (part.type) {
     case 'text':
       return {
@@ -744,7 +743,7 @@ export function buildUIMessageFromDB(
     role: string
     createdAt?: Date | string
   },
-  dbParts: DBMessagePartSelect[]
+  dbParts: Doc<'parts'>[]
 ): UIMessage {
   return {
     id: dbMessage.id,
