@@ -46,7 +46,7 @@ export function ChatShare({ chatId, className }: ChatShareProps) {
     }
 
     const url = new URL(
-      `/search/${sharedChatObject.id}`,
+      `/search/${sharedChatObject.chatId}`,
       window.location.origin
     )
     setShareUrl(url.toString())
