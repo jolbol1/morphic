@@ -42,7 +42,7 @@ export const strictQuestionSchema = z.object({
 export function getQuestionSchemaForModel(fullModel: string) {
   const [provider, modelName] = fullModel?.split(':') ?? []
   const useStrictSchema =
-    (provider === 'openai' || provider === 'azure') &&
+    (provider === 'openai' || provider === 'openrouter') &&
     modelName?.startsWith('o')
   return useStrictSchema ? strictQuestionSchema : questionSchema
 }
