@@ -139,21 +139,15 @@ export async function saveMessage(
     id: messageId,
     chatId
   })
-  // CONVERTED TO CONVEX
-  const convexDbMessage = await fetchMutation(api.chat.upsertMessage, {
-    chatId,
-    id: messageId,
-    message
-  })
 
   // Revalidate cache
   revalidateTag(`chat-${chatId}`)
 
-  if (!convexDbMessage) {
+  if (!dbMessage) {
     throw new Error('Failed to save message')
   }
 
-  return convexDbMessage
+  return dbMessage
 }
 
 /**
