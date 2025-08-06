@@ -49,8 +49,6 @@
     "cmdk": "1.0.0",
     "convex": "^1.25.4",
     "dotenv": "^17.2.1",
-    "drizzle-kit": "^0.31.4",
-    "drizzle-orm": "^0.44.3",
     "embla-carousel-react": "^8.0.0",
     "exa-js": "^1.0.12",
     "js-tiktoken": "^1.0.20",
