@@ -1,14 +1,13 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useState, useTransition } from 'react'
 
 import { MoreHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { deleteChat } from '@/lib/actions/chat-db'
-import { Chat as DBChat } from '@/lib/db/schema'
 
 import {
   AlertDialog,
@@ -33,13 +32,14 @@ import {
   SidebarMenuItem
 } from '@/components/ui/sidebar'
 
+import { Doc } from '@/convex/_generated/dataModel'
 import { Spinner } from '../ui/spinner'
 
 interface ChatMenuItemProps {
-  chat: DBChat
+  chat: Doc<'chats'>
 }
 
-const formatDateWithTime = (date: Date | string) => {
+const formatDateWithTime = (date: Date | string | number) => {
   const parsedDate = new Date(date)
   const now = new Date()
   const yesterday = new Date()
@@ -79,7 +79,7 @@ const formatDateWithTime = (date: Date | string) => {
 
 export function ChatMenuItem({ chat }: ChatMenuItemProps) {
   const pathname = usePathname()
-  const path = `/search/${chat.id}`
+  const path = `/search/${chat.chatId}`
   const isActive = pathname === path
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -88,7 +88,7 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
 
   const handleDeleteChat = useCallback(() => {
     startTransition(async () => {
-      const result = await deleteChat(chat.id)
+      const result = await deleteChat(chat.chatId)
 
       if (result?.success) {
         toast.success('Chat deleted')
@@ -104,7 +104,7 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
       setIsAlertOpen(false)
       setIsMenuOpen(false)
     })
-  }, [chat.id, isActive, router, startTransition])
+  }, [chat.chatId, isActive, router, startTransition])
 
   const handleAlertOpenChange = useCallback(
     (open: boolean) => {
@@ -138,7 +138,7 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
             {chat.title}
           </div>
           <div className="text-xs text-muted-foreground w-full">
-            {formatDateWithTime(chat.createdAt)}
+            {formatDateWithTime(chat._creationTime)}
           </div>
         </Link>
       </SidebarMenuButton>

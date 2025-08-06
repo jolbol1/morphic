@@ -4,25 +4,24 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 
 import { toast } from 'sonner'
 
-import { Chat as DBChat } from '@/lib/db/schema'
-
 import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu
 } from '@/components/ui/sidebar'
 
+import { Doc } from '@/convex/_generated/dataModel'
 import { ChatHistorySkeleton } from './chat-history-skeleton'
 import { ChatMenuItem } from './chat-menu-item'
 import { ClearHistoryAction } from './clear-history-action'
 
 interface ChatPageResponse {
-  chats: DBChat[]
+  chats: Doc<'chats'>[]
   nextOffset: number | null
 }
 
 export function ChatHistoryClient() {
-  const [chats, setChats] = useState<DBChat[]>([])
+  const [chats, setChats] = useState<Doc<'chats'>[]>([])
   const [nextOffset, setNextOffset] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -128,8 +127,8 @@ export function ChatHistoryClient() {
         ) : (
           <SidebarMenu>
             {chats.map(
-              (chat: DBChat) =>
-                chat && <ChatMenuItem key={chat.id} chat={chat} />
+              (chat: Doc<'chats'>) =>
+                chat && <ChatMenuItem key={chat.chatId} chat={chat} />
             )}
           </SidebarMenu>
         )}

@@ -80,8 +80,10 @@ export async function handleStreamFinish(
     }
   })
 
+  console.log('[HANDLE STREAM FINISH] chatTitle', chatTitle)
   // Update title after message is saved
   if (chatTitle && chatTitle !== DEFAULT_CHAT_TITLE) {
+    console.log('[HANDLE STREAM FINISH] updating title', chatTitle)
     updateChatTitle(chatId, chatTitle).catch(error =>
       console.error('Error updating title:', error)
     )
