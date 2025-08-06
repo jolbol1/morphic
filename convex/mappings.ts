@@ -1,4 +1,3 @@
-import { generateId } from '@/lib/db/schema'
 import type { UIMessage } from '@/lib/types/ai'
 import type { DynamicToolPart } from '@/lib/types/dynamic-tools'
 import type {
@@ -6,6 +5,7 @@ import type {
   DBMessagePartSelect,
   ToolState
 } from '@/lib/types/message-persistence'
+import { createId } from '@paralleldrive/cuid2'
 import { Doc } from './_generated/dataModel'
 
 // Define local types for message parts that are compatible with the AI SDK
@@ -109,7 +109,7 @@ function createToolPartMapping(
   return {
     ...basePart,
     type: part.type,
-    tool_toolCallId: part.toolCallId || generateId(),
+    tool_toolCallId: part.toolCallId || createId(),
     tool_state: part.state || ('input-available' as ToolState),
     tool_errorText: part.errorText,
     [inputColumn]: part.input,
@@ -253,7 +253,7 @@ export function mapUIMessagePartsToDBParts(
         return {
           ...basePart,
           type: 'tool-dynamic',
-          tool_toolCallId: dynamicPart.toolCallId || generateId(),
+          tool_toolCallId: dynamicPart.toolCallId || createId(),
           tool_state: dynamicPart.state as ToolState,
           tool_dynamic_name: dynamicPart.toolName,
           tool_dynamic_type: dynamicPart.toolName.startsWith('mcp__')

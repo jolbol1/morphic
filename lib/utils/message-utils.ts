@@ -1,10 +1,9 @@
+import { Doc } from '@/convex/_generated/dataModel'
 import { ModelMessage, UIMessage } from 'ai'
-
-import { type Message as DBMessage } from '@/lib/db/schema'
 
 // Interface matching the expected DB message input format
 interface DatabaseMessageInput {
-  role: DBMessage['role']
+  role: Doc<'messages'>['role']
   parts: any // Using 'any' here as we don't know the exact structure expected by the database
 }
 

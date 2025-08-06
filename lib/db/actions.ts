@@ -5,15 +5,15 @@ import type { PersistableUIMessage } from '@/lib/types/message-persistence'
 
 import { api } from '@/convex/_generated/api'
 import { Doc } from '@/convex/_generated/dataModel'
+import { createId } from '@paralleldrive/cuid2'
 import { fetchMutation, fetchQuery } from 'convex/nextjs'
-import { generateId } from './schema'
 
 /**
  * Create a new chat
  */
 // CONVERTED TO CONVEX
 export async function createChat({
-  id = generateId(),
+  id = createId(),
   title,
   userId,
   visibility = 'private'

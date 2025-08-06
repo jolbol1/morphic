@@ -4,9 +4,9 @@ import { revalidateTag, unstable_cache } from 'next/cache'
 
 import { UIMessage } from '@ai-sdk/react' // Import UIMessage
 
+import { Doc } from '@/convex/_generated/dataModel'
 import { getCurrentUserId } from '@/lib/auth/get-current-user' // Import getCurrentUserId
 import * as chatDb from '@/lib/db/chat'
-import { type Chat as DBChat, type Message as DBMessage } from '@/lib/db/schema' // Import DB schema types
 import { getTextFromParts } from '@/lib/utils/message-utils' // Corrected import path
 
 // Constants
@@ -26,8 +26,8 @@ export async function getChatsPage(userId: string, limit = 20, offset = 0) {
 const getChatUncached = async function (
   chatId: string,
   requestingUserId?: string // Optional: for logged-in user context
-): Promise<(DBChat & { messages: DBMessage[] }) | null> {
-  let chat: DBChat | null = null
+): Promise<(Doc<'chats'> & { messages: Doc<'messages'>[] }) | null> {
+  let chat: Doc<'chats'> | null = null
 
   // Step 1: Attempt to fetch the chat using a method that could find public/shared chats.
   // We assume chatDb.getSharedChat(chatId) is the best candidate for this.
@@ -96,7 +96,7 @@ const createCachedGetChat = (chatId: string) =>
 export async function getChat(
   chatId: string,
   requestingUserId?: string
-): Promise<(DBChat & { messages: DBMessage[] }) | null> {
+): Promise<(Doc<'chats'> & { messages: Doc<'messages'>[] }) | null> {
   const cachedGetChat = createCachedGetChat(chatId)
   return cachedGetChat(chatId, requestingUserId)
 }
@@ -167,7 +167,7 @@ export async function deleteChat(chatId: string): Promise<{
 interface ClientChatInput {
   id: string // Chat ID is required
   title: string // Title is also required
-  visibility?: DBChat['visibility'] // Visibility setting is optional
+  visibility?: Doc<'chats'>['visibility'] // Visibility setting is optional
 }
 
 // Interface for new message input from the client
@@ -180,7 +180,7 @@ interface ClientNewMessageInput {
 export async function saveSingleMessage(
   chatId: string,
   message: UIMessage
-): Promise<DBMessage> {
+): Promise<Doc<'messages'>> {
   try {
     const messageToSave = {
       id: message.id,
@@ -206,26 +206,29 @@ export async function saveChatMessage(
   userMessage: UIMessage,
   userId: string,
   title?: string
-): Promise<{ chat: DBChat; message: DBMessage }> {
+): Promise<{ chat: Doc<'chats'>; message: Doc<'messages'> }> {
   try {
     const existingChat = await chatDb.getChat(chatId, userId)
 
-    let chat: DBChat
+    let chat: Doc<'chats'>
     if (!existingChat) {
       // Use userMessage.parts for title generation
       const messageTextForTitle = getTextFromParts(userMessage.parts as any[])
       const chatTitle = title || messageTextForTitle || DEFAULT_CHAT_TITLE
-      const chatDataForDb: Partial<DBChat> = {
-        id: chatId,
+      const chatDataForDb: Partial<Doc<'chats'>> = {
+        chatId: chatId,
         title: chatTitle.substring(0, 255),
         userId: userId,
         visibility: 'private'
       }
-      const savedChats = await chatDb.saveChat(chatDataForDb as DBChat, userId)
-      if (!savedChats || savedChats.length === 0) {
+      const savedChats = await chatDb.saveChat(
+        chatDataForDb as Doc<'chats'>,
+        userId
+      )
+      if (!savedChats) {
         throw new Error(`Failed to create chat with id: ${chatId}`)
       }
-      chat = savedChats[0]
+      chat = savedChats
     } else {
       chat = existingChat
     }
@@ -267,11 +270,11 @@ export async function saveChat(
     } else {
       // Otherwise, prepare chat metadata and save/update it
       const chatDataForDb: Pick<
-        DBChat,
-        'id' | 'title' | 'userId' | 'visibility'
+        Doc<'chats'>,
+        'chatId' | 'title' | 'userId' | 'visibility'
       > &
-        Partial<DBChat> = {
-        id: clientChatInput.id,
+        Partial<Doc<'chats'>> = {
+        chatId: clientChatInput.id,
         title: clientChatInput.title,
         userId: userId, // Ensure authenticated user ID is used
         visibility: clientChatInput.visibility || 'private' // Set default value
@@ -279,11 +282,10 @@ export async function saveChat(
 
       // Call lib/db/chat.ts saveChat to save/update chat metadata in the DB
       const savedOrUpdatedChatArray = await chatDb.saveChat(
-        chatDataForDb as DBChat,
+        chatDataForDb as Doc<'chats'>,
         userId
       )
-      savedOrUpdatedChatDetails =
-        savedOrUpdatedChatArray && savedOrUpdatedChatArray[0]
+      savedOrUpdatedChatDetails = savedOrUpdatedChatArray
 
       if (!savedOrUpdatedChatDetails) {
         throw new Error(
@@ -296,14 +298,14 @@ export async function saveChat(
     if (clientNewMessages && clientNewMessages.length > 0) {
       for (const message of clientNewMessages) {
         await chatDb.addMessage({
-          chatId: savedOrUpdatedChatDetails.id, // Use the ID of the saved/updated chat
+          chatId: savedOrUpdatedChatDetails.chatId, // Use the ID of the saved/updated chat
           role: message.role,
           parts: message.parts
         })
       }
 
       // Revalidate specific chat cache when new messages are added
-      revalidateTag(`chat-${savedOrUpdatedChatDetails.id}`)
+      revalidateTag(`chat-${savedOrUpdatedChatDetails.chatId}`)
     }
 
     // Return the saved/updated chat metadata
@@ -348,10 +350,7 @@ export async function deleteTrailingMessages(
     }
 
     // The createdAt field from DBMessage is now a Date object
-    const pivotTimestamp =
-      pivotMessage.createdAt instanceof Date
-        ? pivotMessage.createdAt.toISOString()
-        : pivotMessage.createdAt
+    const pivotTimestamp = pivotMessage._creationTime
 
     // 3. Call the database function to delete messages after the pivot message
     const deleteResult = await chatDb.deleteMessagesByChatIdAfterTimestamp(
@@ -381,7 +380,7 @@ export async function deleteTrailingMessages(
 }
 
 // Share a chat (makes it public if authorized)
-export async function shareChat(id: string): Promise<DBChat | null> {
+export async function shareChat(id: string): Promise<Doc<'chats'> | null> {
   const userId = await getCurrentUserId() // Get user ID on the server
 
   if (!userId) {

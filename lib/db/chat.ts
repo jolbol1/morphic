@@ -243,7 +243,7 @@ export async function getChatMessages(
 //CONVERTED TO CONVEX
 export async function deleteMessagesByChatIdAfterTimestamp(
   chatId: string,
-  timestamp: string // Expecting ISO 8601 string
+  timestamp: number // Expecting ISO 8601 string
 ): Promise<{ count: number; error?: string }> {
   const convexMessages = await fetchMutation(
     api.chat.deleteMessagesByChatIdAfterTimestamp,
@@ -395,6 +395,10 @@ export async function shareChat(id: string, userId: string) {
     chatId: id,
     userId
   })
+
+  if (!convexChat) {
+    throw new Error('Failed to share chat')
+  }
 
   return convexChat
   // try {
