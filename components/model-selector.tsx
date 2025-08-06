@@ -3,12 +3,18 @@
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
-import { Check, ChevronsUpDown, Lightbulb } from 'lucide-react'
+import {
+  Brain,
+  Check,
+  ChevronsUpDown,
+  WrenchIcon,
+  XCircleIcon
+} from 'lucide-react'
 
 import { Model } from '@/lib/types/models'
 import { getCookie, setCookie } from '@/lib/utils/cookies'
 
-import { createModelId } from '../lib/utils'
+import { cn, createModelId } from '../lib/utils'
 
 import { Button } from './ui/button'
 import {
@@ -20,6 +26,7 @@ import {
   CommandList
 } from './ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 
 export const providerImages = {
   openrouter: '/providers/logos/openrouter.svg',
@@ -115,9 +122,6 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                 className="bg-white rounded-full border"
               />
               <span className="text-xs font-medium">{selectedModel.name}</span>
-              {selectedModel.reasoning && (
-                <Lightbulb size={12} className="text-accent-blue-foreground" />
-              )}
             </div>
           ) : (
             'Select model'
@@ -148,23 +152,104 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                         key={modelId2 ?? modelId}
                         value={modelId}
                         onSelect={handleModelSelect}
-                        className="flex justify-between"
+                        className={cn(
+                          'flex justify-between',
+                          model.toolCallType !== 'native' && 'opacity-75'
+                        )}
                       >
-                        <div className="flex items-center space-x-2">
-                          <Image
-                            src={
-                              providerImages[
-                                model.provider as keyof typeof providerImages
-                              ] ?? '/providers/logos/openrouter.svg'
-                            }
-                            alt={model.provider}
-                            width={18}
-                            height={18}
-                            className="bg-white rounded-full border"
-                          />
-                          <span className="text-xs font-medium">
+                        <Image
+                          src={
+                            providerImages[
+                              model.provider as keyof typeof providerImages
+                            ] ?? '/providers/logos/openrouter.svg'
+                          }
+                          alt={model.provider}
+                          width={18}
+                          height={18}
+                          className="bg-white rounded-full border"
+                        />
+                        <div className="flex flex-col gap-1 w-full">
+                          <span
+                            className={cn(
+                              'text-xs font-medium',
+                              model.toolCallType !== 'native' &&
+                                'text-destructive'
+                            )}
+                          >
                             {model.name}
                           </span>
+                          <div className="flex items-center gap-1">
+                            <>
+                              {model.reasoning && (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <div
+                                      className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-md text-[var(--color)] dark:text-[var(--color-dark)]"
+                                      style={
+                                        {
+                                          '--color-dark': 'hsl(237 75% 77%)',
+                                          '--color': 'hsl(237 55% 57%)'
+                                        } as React.CSSProperties
+                                      }
+                                    >
+                                      <div className="absolute inset-0 bg-current opacity-20 dark:opacity-15" />
+                                      <Brain className="h-4 w-4" />
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Supports Reasoning</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {model.toolCallType === 'native' ? (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <div
+                                      className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-md text-[var(--color)] dark:text-[var(--color-dark)]"
+                                      style={
+                                        {
+                                          '--color-dark': 'hsl(168 54% 74%)',
+                                          '--color': 'hsl(168 54% 52%)'
+                                        } as React.CSSProperties
+                                      }
+                                    >
+                                      <div className="absolute inset-0 bg-current opacity-20 dark:opacity-15" />
+                                      <WrenchIcon className="h-4 w-4" />
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Supports Tool Calls</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <div
+                                      className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-md text-[var(--color)] dark:text-[var(--color-dark)]"
+                                      style={
+                                        {
+                                          '--color-dark': 'hsl(0 54% 74%)',
+                                          '--color': 'hsl(0 54% 52%)'
+                                        } as React.CSSProperties
+                                      }
+                                    >
+                                      <div className="absolute inset-0 bg-current opacity-20 dark:opacity-15" />
+                                      <XCircleIcon className="h-4 w-4" />
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p>
+                                      This model cannot make tool calls but you
+                                      can still use it for chatting. You can
+                                      also use another model for the tool call,
+                                      and the results will be in the context
+                                      when you chat with it.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </>
+                          </div>
                         </div>
                         <Check
                           className={`h-4 w-4 ${

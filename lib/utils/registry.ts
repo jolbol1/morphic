@@ -18,12 +18,19 @@ export const registry = createProviderRegistry({
   openrouter: {
     ...openai,
     ...createOpenRouter({
+      compatibility: 'strict',
+      extraBody: {
+        reasoning: {
+          effort: 'high'
+        }
+      },
       apiKey: process.env.OPENROUTER_API_KEY
     })
   }
 })
 
 export function getModel(model: string): LanguageModel {
+  registry.languageModel()
   return registry.languageModel(
     model as Parameters<typeof registry.languageModel>[0]
   )

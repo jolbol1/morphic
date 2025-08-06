@@ -43,10 +43,13 @@ Good follow-ups:
 Bad follow-ups (avoid these):
 - "Why is Nvidia growing so fast?" (rephrases original)
 - "Is Nvidia growing?" (less specific than original)
-- "Tell me about Nvidia" (too general)`
+- "Tell me about Nvidia" (too general)
+
+`
 
   const { object } = await generateObject({
     model: getModel(model),
+
     schema: relatedQuestionsSchema,
     schemaName: 'RelatedQuestions',
     schemaDescription:
