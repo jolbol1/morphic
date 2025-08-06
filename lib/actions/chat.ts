@@ -33,7 +33,7 @@ export async function getChats() {
 export async function getChat(
   chatId: string,
   requestingUserId?: string
-): Promise<(Chat & { messages: UIMessage[] }) | null> {
+): Promise<(Doc<'chats'> & { messages: UIMessage[] }) | null> {
   // Use optimized function that loads both in parallel
   return dbActions.loadChatWithMessages(chatId, requestingUserId)
 }
@@ -194,7 +194,7 @@ export async function clearChats() {
   const chats = await dbActions.getChats(userId)
 
   for (const chat of chats) {
-    await dbActions.deleteChat(chat.id, userId)
+    await dbActions.deleteChat(chat.chatId, userId)
   }
 
   revalidateTag('chat')
