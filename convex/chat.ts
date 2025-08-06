@@ -158,6 +158,32 @@ export const deleteChat = mutation({
       throw new Error('Unauthorized')
     }
 
+    const messages = await ctx.db
+      .query('messages')
+      .withIndex('by_chat_id', q => q.eq('chatId', chat._id))
+      .collect()
+
+    const messageIds = messages.map(message => message.id)
+
+    const parts = await Promise.all(
+      messageIds.map(async messageId => {
+        return ctx.db
+          .query('parts')
+          .withIndex('by_message_id', q => q.eq('messageId', messageId))
+          .collect()
+      })
+    )
+
+    const partIds = parts.flatMap(part => part.map(part => part._id))
+
+    await Promise.all(partIds.map(partId => ctx.db.delete(partId)))
+
+    await Promise.all(
+      messages.map(message => {
+        return ctx.db.delete(message._id)
+      })
+    )
+
     await ctx.db.delete(chat._id)
 
     return { success: true }
