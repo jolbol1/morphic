@@ -14,6 +14,12 @@ const DEFAULT_MODEL: Model = {
   providerId: 'anthropic',
   enabled: true,
   toolCallType: 'native'
+  id: 'gpt-4o-mini',
+  name: 'GPT-4o mini',
+  provider: 'OpenAI',
+  providerId: 'openrouter',
+  enabled: true,
+  toolCallType: 'native'
 }
 
 export async function POST(req: Request) {
