@@ -13,7 +13,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `bun typecheck` - Run TypeScript type checking
 - `bun format` - Format code with Prettier
 - `bun format:check` - Check code formatting without modifying files
-- `bun migrate` - Run database migrations
+- `npx convex dev` - Start Convex development server
+- `npx convex deploy` - Deploy Convex functions to production
 - `bun test` - Run tests with Vitest
 - `bun test:watch` - Run tests in watch mode
 
@@ -29,9 +30,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Next.js 15.2.3** with App Router and React Server Components
 - **React 19.0.0** with TypeScript for type safety
 - **Vercel AI SDK 5.0.0-alpha.2** for AI streaming and GenerativeUI
-- **Supabase** for authentication and backend services
-- **PostgreSQL** with Drizzle ORM for database
-- **Redis** (Upstash or local) for chat history storage
+- **Clerk** for authentication and user management
+- **Convex** for backend database and real-time functionality
+- **Redis** (Upstash or local) for caching and session storage
 - **Tailwind CSS** with shadcn/ui components
 
 ### Core Architecture
@@ -49,11 +50,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - `/lib/tools/` - Search and retrieval tool implementations
    - Models configured in `public/config/models.json`
 
-3. **Database** (`/lib/db`)
-   - PostgreSQL database with Drizzle ORM
-   - Schema defined in `/lib/db/schema.ts`
-   - Migrations in `/lib/db/migrations/`
+3. **Database** (`/convex`)
+   - Convex backend for database and real-time functionality
+   - Schema defined in `/convex/schema.ts`
+   - Database functions in `/convex/chat.ts` and `/convex/mappings.ts`
    - Database actions in `/lib/actions/chat-db.ts`
+   - **Note**: For all Convex-related development, refer to `@convex_rules.mdc` for guidelines and best practices
 
 4. **Search System**
    - Multiple providers: Tavily (default), SearXNG (self-hosted), Exa (neural)
@@ -70,8 +72,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 6. **State Management**
    - Server-side state via React Server Components
    - Client-side hooks in `/hooks/`
-   - Redis for persistent chat history
-   - Supabase for user data
+   - Convex for persistent chat history and real-time updates
+   - Redis for caching and session management
+   - Clerk for user authentication and data
+   - **Note**: For Convex state management patterns, check `@convex_rules.mdc`
 
 ## Environment Configuration
 
@@ -80,7 +84,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 OPENAI_API_KEY=      # Default AI provider
 TAVILY_API_KEY=      # Default search provider
-DATABASE_URL=        # PostgreSQL connection string
+CONVEX_DEPLOYMENT=   # Convex deployment URL
+NEXT_PUBLIC_CONVEX_URL= # Public Convex URL for client
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= # Clerk public key
+CLERK_SECRET_KEY=    # Clerk secret key
+UPSTASH_REDIS_REST_URL= # Redis URL for caching
+UPSTASH_REDIS_REST_TOKEN= # Redis token for authentication
 ```
 
 ### Optional Features
@@ -89,6 +98,7 @@ DATABASE_URL=        # PostgreSQL connection string
 - Alternative AI providers: Add corresponding API keys (ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, etc.)
 - Alternative search: Configure SEARCH_API and provider-specific settings
 - Sharing: Set `NEXT_PUBLIC_ENABLE_SHARE=true`
+- File uploads: Configure AWS S3 credentials for file storage
 
 ## Key Development Patterns
 
@@ -97,6 +107,8 @@ DATABASE_URL=        # PostgreSQL connection string
 3. **Type Safety**: Strict TypeScript configuration with comprehensive type definitions in `/lib/types/`
 4. **Schema Validation**: Zod schemas in `/lib/schema/` for data validation
 5. **Error Handling**: Comprehensive error boundaries and fallback UI components
+6. **Real-time Updates**: Convex provides real-time database subscriptions and updates
+7. **Convex Integration**: Follow patterns and guidelines in `@convex_rules.mdc` for all Convex-related code
 
 ## Testing Approach
 
@@ -132,7 +144,9 @@ Models are defined in `public/config/models.json` with:
 
 ## Database Management
 
-- Run `bun migrate` to apply database migrations
-- Migrations are located in `/drizzle/` directory
-- Schema changes should be made in `/lib/db/schema.ts`
-- Use Drizzle Kit for generating migrations
+- Convex handles schema migrations automatically
+- Schema is defined in `/convex/schema.ts`
+- Database functions are located in `/convex/` directory
+- Run `npx convex dev` for development mode
+- Run `npx convex deploy` for production deployment
+- **Important**: Always follow Convex best practices outlined in `@convex_rules.mdc`
