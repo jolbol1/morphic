@@ -7,4 +7,6 @@ export interface Model {
   toolCallType: 'native' | 'manual'
   overallRank?: number
   reasoning?: boolean
+  toolCallType: 'native' | 'manual'
+  overallRank?: number
 }
