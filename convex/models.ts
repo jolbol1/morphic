@@ -334,7 +334,8 @@ export const getModelsForAPI = query({
       overallRank: model.overallRanking,
       toolCallType: model.supportedParameters.includes('tools')
         ? 'native'
-        : 'manual'
+        : 'manual',
+      reasoning: model.supportedParameters.includes('reasoning')
     })) as Model[]
 
     return modelsForAPI
