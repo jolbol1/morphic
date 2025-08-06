@@ -1,3 +1,21 @@
+# Jolbol1 fork
+
+## 🔄 Migration Status
+
+This application is currently undergoing a partial migration to [Convex](https://convex.dev/) to replace the existing Drizzle/Neon database stack.
+
+**Current Architecture:**
+
+- Convex → Next.js Server → Next.js Frontend
+
+**Migration Progress:**
+
+- ✅ Backend data layer migrated to Convex
+- ⏳ Frontend integration pending
+- 🎯 Future: Remove Next.js server entirely and connect frontend directly to Convex
+
+This hybrid approach maintains functionality while transitioning to a more streamlined architecture.
+
 # Morphic
 
 An AI-powered search engine with a generative UI.
