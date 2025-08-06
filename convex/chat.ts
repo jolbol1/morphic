@@ -365,6 +365,19 @@ export const deleteMessagesByChatIdAfterTimestamp = mutation({
       return { count: 0 }
     }
 
+    const partsToDelete = await Promise.all(
+      messagesToDelete.map(message => {
+        return ctx.db
+          .query('parts')
+          .withIndex('by_message_id', q => q.eq('messageId', message.id))
+          .collect()
+      })
+    )
+
+    const partIds = partsToDelete.flatMap(part => part.map(part => part._id))
+
+    await Promise.all(partIds.map(partId => ctx.db.delete(partId)))
+
     await Promise.all(
       messagesToDelete.map(message => {
         return ctx.db.delete(message._id)
@@ -389,6 +402,38 @@ export const clearChats = mutation({
     if (!userChats.length) {
       return { error: 'No chats to clear' }
     }
+
+    const messagesToDelete = await Promise.all(
+      userChats.map(chat => {
+        return ctx.db
+          .query('messages')
+          .withIndex('by_chat_id', q => q.eq('chatId', chat._id))
+          .collect()
+      })
+    )
+
+    const messageRealIds = messagesToDelete.flatMap(message =>
+      message.map(message => message._id)
+    )
+
+    const messageIds = messagesToDelete.flatMap(message =>
+      message.map(message => message.id)
+    )
+
+    const partsToDelete = await Promise.all(
+      messageIds.map(messageId => {
+        return ctx.db
+          .query('parts')
+          .withIndex('by_message_id', q => q.eq('messageId', messageId))
+          .collect()
+      })
+    )
+
+    const partIds = partsToDelete.flatMap(part => part.map(part => part._id))
+
+    await Promise.all(partIds.map(partId => ctx.db.delete(partId)))
+
+    await Promise.all(messageRealIds.map(messageId => ctx.db.delete(messageId)))
 
     await Promise.all(userChats.map(chat => ctx.db.delete(chat._id)))
 
@@ -577,13 +622,27 @@ export const deleteMessagesAfter = mutation({
       .filter(q => q.gte(q.field('_creationTime'), targetMessage._creationTime))
       .collect()
 
-    const messageIds = messagesToDelete.map(m => m._id)
+    const messageRealIds = messagesToDelete.map(m => m._id)
+    const messageIds = messagesToDelete.map(m => m.id)
 
-    if (messageIds.length > 0) {
-      await Promise.all(messageIds.map(id => ctx.db.delete(id)))
+    const partsToDelete = await Promise.all(
+      messageIds.map(messageId => {
+        return ctx.db
+          .query('parts')
+          .withIndex('by_message_id', q => q.eq('messageId', messageId))
+          .collect()
+      })
+    )
+
+    const partIds = partsToDelete.flatMap(part => part.map(part => part._id))
+
+    await Promise.all(partIds.map(partId => ctx.db.delete(partId)))
+
+    if (messageRealIds.length > 0) {
+      await Promise.all(messageRealIds.map(id => ctx.db.delete(id)))
     }
 
-    return { count: messageIds.length }
+    return { count: messageRealIds.length }
   }
 })
 
@@ -610,13 +669,26 @@ export const deleteMessagesFromIndex = mutation({
 
     // Get messages to delete (from index onwards)
     const messagesToDelete = allMessages.slice(messageIndex)
-    const messageIds = messagesToDelete.map(m => m._id)
+    const messageRealIds = messagesToDelete.map(m => m._id)
 
-    if (messageIds.length > 0) {
-      await Promise.all(messageIds.map(id => ctx.db.delete(id)))
+    const partsToDelete = await Promise.all(
+      messagesToDelete.map(message => {
+        return ctx.db
+          .query('parts')
+          .withIndex('by_message_id', q => q.eq('messageId', message.id))
+          .collect()
+      })
+    )
+
+    const partIds = partsToDelete.flatMap(part => part.map(part => part._id))
+
+    await Promise.all(partIds.map(partId => ctx.db.delete(partId)))
+
+    if (messageRealIds.length > 0) {
+      await Promise.all(messageRealIds.map(id => ctx.db.delete(id)))
     }
 
-    return { count: messageIds.length }
+    return { count: messageRealIds.length }
   }
 })
 
