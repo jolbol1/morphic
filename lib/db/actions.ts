@@ -1,6 +1,5 @@
 'use server'
 
-import { chatCache } from '@/lib/cache/memory-cache'
 import type { UIMessage } from '@/lib/types/ai'
 import type { PersistableUIMessage } from '@/lib/types/message-persistence'
 
@@ -47,7 +46,6 @@ export async function createChat({
   //   .returning()
 
   // Invalidate cache for this chat
-  chatCache.deletePattern(`${id}-`)
 
   return convexChat
 }
@@ -135,9 +133,6 @@ export async function upsertMessage(
 
   // Invalidate cache after successful transaction
   // Using setTimeout to ensure this happens after transaction commit
-  setTimeout(() => {
-    chatCache.deletePattern(`${message.chatId}-`)
-  }, 0)
 
   return result
 }
@@ -340,6 +335,7 @@ export async function getChats(userId: string): Promise<Doc<'chats'>[]> {
 /**
  * Delete a chat
  */
+// CONVERTED TO CONVEX
 export async function deleteChat(
   chatId: string,
   userId: string
@@ -374,6 +370,7 @@ export async function deleteChat(
 /**
  * Update chat visibility
  */
+// CONVERTED TO CONVEX
 export async function updateChatVisibility(
   chatId: string,
   userId: string,
@@ -409,6 +406,7 @@ export async function updateChatVisibility(
 /**
  * Update chat title
  */
+// CONVERTED TO CONVEX
 export async function updateChatTitle(
   chatId: string,
   title: string

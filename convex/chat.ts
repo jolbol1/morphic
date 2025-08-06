@@ -471,6 +471,8 @@ export const loadChat = query({
         return buildUIMessageFromDB(message, sortedOrderParts)
       })
     )
+
+    console.log('[LoadChat] messagesWithParts', messagesWithParts)
     return messagesWithParts
   }
 })
@@ -516,6 +518,7 @@ export const loadChatWithMessages = query({
       })
     )
 
+    console.log('[LoadChatWithMessages] messagesWithParts', messagesWithParts)
     const result = { ...chat, messages: messagesWithParts }
     return result
   }
@@ -627,11 +630,9 @@ export const updateChatTitle = mutation({
   handler: async (ctx, args) => {
     const { chatId, title } = args
 
-    const realChatID = await convertChatIdtoChat_id(ctx, chatId)
-
     const chat = await ctx.db
       .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
       .unique()
 
     if (!chat) {

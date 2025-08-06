@@ -98,13 +98,6 @@ export async function createChatAndSaveMessage(
     visibility: 'private'
   })
 
-  // Save message
-  const dbMessage = await dbActions.upsertMessage({
-    ...message,
-    id: messageId,
-    chatId
-  })
-
   const convexDbMessage = await fetchMutation(api.chat.upsertMessage, {
     chatId,
     id: messageId,
