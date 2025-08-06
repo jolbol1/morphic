@@ -11,7 +11,9 @@ const DEFAULT_MODEL: Model = {
   id: 'gpt-4o-mini',
   name: 'GPT-4o mini',
   provider: 'OpenAI',
-  providerId: 'openai'
+  providerId: 'openrouter',
+  enabled: true,
+  toolCallType: 'native'
 }
 
 export async function POST(req: Request) {
@@ -71,6 +73,8 @@ export async function POST(req: Request) {
         }
       )
     }
+
+    console.log('[app/api/chat/route] selectedModel', selectedModel)
 
     return await createChatStreamResponse({
       message,

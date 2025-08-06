@@ -2,18 +2,41 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { createGateway } from '@ai-sdk/gateway'
 import { google } from '@ai-sdk/google'
 import { createOpenAI, openai } from '@ai-sdk/openai'
+import { xai } from '@ai-sdk/xai'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createProviderRegistry, LanguageModel } from 'ai'
 
 export const registry = createProviderRegistry({
   openai,
   anthropic,
   google,
+  groq,
+  azure: createAzure({
+    apiKey: process.env.AZURE_API_KEY,
+    resourceName: process.env.AZURE_RESOURCE_NAME,
+    apiVersion: '2025-03-01-preview'
+  }),
+  deepseek,
+  fireworks: {
+    ...createFireworks({
+      apiKey: process.env.FIREWORKS_API_KEY
+    }),
+    languageModel: fireworks
+  },
+  xai,
+  // Add AI Gateway provider
+  gateway: createGateway({
+    apiKey: process.env.AI_GATEWAY_API_KEY
+  }),
+  openrouter: {
+    ...openai,
+    ...createOpenRouter({
+      apiKey: process.env.OPENROUTER_API_KEY
+    })
+  },
   'openai-compatible': createOpenAI({
     apiKey: process.env.OPENAI_COMPATIBLE_API_KEY,
     baseURL: process.env.OPENAI_COMPATIBLE_API_BASE_URL
-  }),
-  gateway: createGateway({
-    apiKey: process.env.AI_GATEWAY_API_KEY
   })
 })
 
@@ -25,6 +48,9 @@ export function getModel(model: string): LanguageModel {
 
 export function isProviderEnabled(providerId: string): boolean {
   switch (providerId) {
+    case 'openrouter':
+      // Check for openAI here as needed for images and embeddings
+      return !!process.env.OPENROUTER_API_KEY && !!process.env.OPENAI_API_KEY
     case 'openai':
       return !!process.env.OPENAI_API_KEY
     case 'anthropic':

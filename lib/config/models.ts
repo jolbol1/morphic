@@ -19,6 +19,8 @@ const getModelsUncached = async function (baseUrl: string): Promise<Model[]> {
     const modelUrl = new URL('/config/models.json', baseUrl)
     console.log('Attempting to fetch models from:', modelUrl.toString())
 
+    console.log('[getModelsUncached] baseUrl', baseUrl)
+
     try {
       const response = await fetch(modelUrl, {
         next: { revalidate: 3600 },
