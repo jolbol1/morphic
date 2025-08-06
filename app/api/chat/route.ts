@@ -8,10 +8,10 @@ import { isProviderEnabled } from '@/lib/utils/registry'
 export const maxDuration = 30
 
 const DEFAULT_MODEL: Model = {
-  id: 'gpt-4o-mini',
-  name: 'GPT-4o mini',
-  provider: 'OpenAI',
-  providerId: 'openrouter',
+  id: 'anthropic/claude-sonnet-4',
+  name: 'Claude Sonnet 4',
+  provider: 'Anthropic',
+  providerId: 'anthropic',
   enabled: true,
   toolCallType: 'native'
 }

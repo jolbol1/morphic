@@ -31,7 +31,7 @@ export async function createChatStreamResponse(
 ): Promise<Response> {
   const { message, model, chatId, userId, trigger, messageId, abortSignal } =
     config
-  const modelId = `${model.providerId}:${model.id}`
+  let modelId = `${model.providerId}:${model.id}`
 
   // Verify that chatId is provided
   if (!chatId) {
@@ -56,7 +56,7 @@ export async function createChatStreamResponse(
   const context: StreamContext = {
     chatId,
     userId,
-    modelId: `${model.providerId}:${model.id}`,
+    modelId,
     messageId,
     trigger,
     initialChat,

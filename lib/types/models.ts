@@ -3,4 +3,6 @@ export interface Model {
   name: string
   provider: string
   providerId: string
+  toolCallType: 'native' | 'manual'
+  overallRank?: number
 }

@@ -1,7 +1,7 @@
-import { unstable_cache } from 'next/cache'
-
 import { Model } from '@/lib/types/models'
 
+import { api } from '@/convex/_generated/api'
+import { fetchQuery } from 'convex/nextjs'
 import defaultModels from './default-models.json'
 
 export function validateModel(model: any): model is Model {
@@ -13,59 +13,29 @@ export function validateModel(model: any): model is Model {
   )
 }
 
-const getModelsUncached = async function (baseUrl: string): Promise<Model[]> {
+const getModelsUncached = async function (): Promise<Model[]> {
   try {
     // Construct the models.json URL using the provided baseUrl
-    const modelUrl = new URL('/config/models.json', baseUrl)
-    console.log('Attempting to fetch models from:', modelUrl.toString())
+    const models = await fetchQuery(api.models.getModelsForAPI)
 
-    console.log('[getModelsUncached] baseUrl', baseUrl)
-
-    try {
-      const response = await fetch(modelUrl, {
-        next: { revalidate: 3600 },
-        headers: {
-          Accept: 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        console.warn(
-          `HTTP error when fetching models: ${response.status} ${response.statusText}`
-        )
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const text = await response.text()
-
-      // Check if the response starts with HTML doctype
-      if (text.trim().toLowerCase().startsWith('<!doctype')) {
-        console.warn('Received HTML instead of JSON when fetching models')
-        throw new Error('Received HTML instead of JSON')
-      }
-
-      const config = JSON.parse(text)
-      if (Array.isArray(config.models) && config.models.every(validateModel)) {
-        console.log('Successfully loaded models from URL')
-        return config.models
-      }
-    } catch (error: any) {
-      // Fallback to default models if fetch fails
-      console.warn(
-        'Fetch failed, falling back to default models:',
-        error.message || 'Unknown error'
-      )
-
-      if (
-        Array.isArray(defaultModels.models) &&
-        defaultModels.models.every(validateModel)
-      ) {
-        console.log('Successfully loaded default models')
-        return defaultModels.models
-      }
+    if (Array.isArray(models) && models.every(validateModel)) {
+      console.log('Successfully loaded models from URL')
+      return models
     }
-  } catch (error) {
-    console.warn('Failed to load models:', error)
+  } catch (error: any) {
+    // Fallback to default models if fetch fails
+    console.warn(
+      'Fetch failed, falling back to default models:',
+      error.message || 'Unknown error'
+    )
+
+    if (
+      Array.isArray(defaultModels.models) &&
+      defaultModels.models.every(validateModel)
+    ) {
+      console.log('Successfully loaded default models')
+      return defaultModels.models
+    }
   }
 
   // Last resort: return empty array
@@ -73,15 +43,7 @@ const getModelsUncached = async function (baseUrl: string): Promise<Model[]> {
   return []
 }
 
-// Cached version with 1 hour revalidation
-const getCachedModels = unstable_cache(getModelsUncached, ['models'], {
-  revalidate: 3600, // 1 hour cache
-  tags: ['models']
-})
-
 // Wrapper function that handles the dynamic baseUrl
 export async function getModels(): Promise<Model[]> {
-  const { getBaseUrl } = await import('@/lib/utils/url')
-  const baseUrlObj = await getBaseUrl()
-  return getCachedModels(baseUrlObj.toString())
+  return getModelsUncached()
 }
