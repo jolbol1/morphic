@@ -242,7 +242,7 @@ export default defineSchema({
     .index('by_message_id', ['messageId'])
     .index('by_message_id_and_order', ['messageId', 'order']),
   models: defineTable({
-    openrouterId: v.string(),
+    openrouterId: v.optional(v.string()),
     name: v.string(),
     description: v.string(),
     inputModalities: v.array(v.string()),

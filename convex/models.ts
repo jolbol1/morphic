@@ -1,4 +1,5 @@
 import { Model } from '@/lib/types/models'
+import { gateway } from '@ai-sdk/gateway'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import {
@@ -8,10 +9,49 @@ import {
   query
 } from './_generated/server'
 
+// Gateway ID to OpenRouter ID mapping
+const openRouterToGatewayMapping: Record<string, string> = {
+  // Anthropic Claude mappings
+  'anthropic/claude-opus-4': 'anthropic/claude-4-opus',
+  'anthropic/claude-sonnet-4': 'anthropic/claude-4-sonnet',
+  'anthropic/claude-opus-4.1': 'anthropic/claude-4.1-opus',
+
+  // Qwen/Alibaba mappings
+  'qwen/qwen3-14b': 'alibaba/qwen-3-14b',
+  'qwen/qwen3-235b-a22b-2507': 'alibaba/qwen-3-235b',
+  'qwen/qwen3-30b-a3b': 'alibaba/qwen-3-30b',
+  'qwen/qwen3-32b': 'alibaba/qwen-3-32b',
+  'qwen/qwen3-coder': 'alibaba/qwen3-coder',
+
+  // Amazon Nova mappings
+  'amazon/nova-lite-v1': 'amazon/nova-lite',
+  'amazon/nova-micro-v1': 'amazon/nova-micro',
+  'amazon/nova-pro-v1': 'amazon/nova-pro',
+
+  // DeepSeek mappings
+  'deepseek/deepseek-chat-v3-0324': 'deepseek/deepseek-v3',
+
+  // Google mappings
+  'google/gemini-2.0-flash-001': 'google/gemini-2.0-flash',
+  'google/gemini-2.0-flash-lite-001': 'google/gemini-2.0-flash-lite',
+  'google/gemma-2-9b-it': 'google/gemma-2-9b',
+
+  // Meta LLaMA mappings
+  'meta-llama/llama-3-70b-instruct': 'meta/llama-3-70b',
+  'meta-llama/llama-3-8b-instruct': 'meta/llama-3-8b',
+  'meta-llama/llama-3.1-70b-instruct': 'meta/llama-3.1-70b',
+  'meta-llama/llama-3.1-8b-instruct': 'meta/llama-3.1-8b',
+  'meta-llama/llama-4-maverick': 'meta/llama-4-maverick',
+  'meta-llama/llama-4-scout': 'meta/llama-4-scout'
+}
+
 export const fetchAndUpdateModels = internalAction({
   args: {},
   handler: async ctx => {
     try {
+      const gatewayModels = await gateway.getAvailableModels()
+      let matchedGatewayModelIds: string[] = []
+
       const allResponse = await fetch('https://openrouter.ai/api/v1/models')
       if (!allResponse.ok) {
         throw new Error(`Failed to fetch models: ${allResponse.status}`)
@@ -167,8 +207,21 @@ export const fetchAndUpdateModels = internalAction({
             ? i + 1
             : undefined
 
+        //Fetch Vercel Gateway match
+
+        const gatewayModel = gatewayModels.models.find(
+          gatewayModel =>
+            gatewayModel.id === model.id ||
+            openRouterToGatewayMapping[model.id] === gatewayModel.id
+        )
+
+        if (gatewayModel) {
+          matchedGatewayModelIds.push(gatewayModel.id)
+        }
+
         await ctx.runMutation(internal.models.insertModel, {
           openrouterId: model.id,
+          gatewayId: gatewayModel?.id,
           name: model.name,
           description: model.description || '',
           inputModalities: model.architecture?.input_modalities || [],
@@ -188,7 +241,34 @@ export const fetchAndUpdateModels = internalAction({
         })
       }
 
-      return { success: true, count: allModels.length }
+      const nonMatchedGatewayModels = gatewayModels.models.filter(
+        model => !matchedGatewayModelIds.includes(model.id)
+      )
+
+      await Promise.all(
+        nonMatchedGatewayModels.map(async (model, index) =>
+          ctx.runMutation(internal.models.insertModel, {
+            gatewayId: model.id,
+            name: model.name,
+            overallRanking: allModels.length + index + 1,
+            description: model.description || '',
+            inputModalities: ['text', 'unknown'],
+            outputModalities: ['text', 'unknown'],
+            pricing: {
+              prompt: model.pricing?.input || '0',
+              completion: model.pricing?.output || '0',
+              image: 'unknown',
+              request: 'unknown'
+            },
+            supportedParameters: ['unknown']
+          })
+        )
+      )
+
+      return {
+        success: true,
+        count: allModels.length + nonMatchedGatewayModels.length
+      }
     } catch (error) {
       console.error('Error fetching models:', error)
       throw error
@@ -198,7 +278,8 @@ export const fetchAndUpdateModels = internalAction({
 
 export const insertModel = internalMutation({
   args: {
-    openrouterId: v.string(),
+    openrouterId: v.optional(v.string()),
+    gatewayId: v.optional(v.string()),
     name: v.string(),
     description: v.string(),
     inputModalities: v.array(v.string()),
@@ -209,7 +290,6 @@ export const insertModel = internalMutation({
       image: v.string(),
       request: v.string()
     }),
-    gatewayId: v.optional(v.string()),
     contextLength: v.optional(v.number()),
     supportedParameters: v.array(v.string()),
     programmingRanking: v.optional(v.number()),
@@ -258,7 +338,8 @@ export const searchModels = query({
       model =>
         model.name.toLowerCase().includes(searchLower) ||
         model.description.toLowerCase().includes(searchLower) ||
-        model.openrouterId.toLowerCase().includes(searchLower)
+        model.openrouterId?.toLowerCase().includes(searchLower) ||
+        model.gatewayId?.toLowerCase().includes(searchLower)
     )
   }
 })
@@ -274,178 +355,21 @@ export const getModelsForAPI = query({
     const modelsForAPI = models.map(model => ({
       id: model.gatewayId ?? model.openrouterId,
       name: model.name,
-      provider: model.openrouterId.split('/')[0],
+      provider: model.openrouterId
+        ? model.openrouterId.split('/')[0]
+        : model.gatewayId?.split('/')[0],
       providerId: model.gatewayId ? 'gateway' : 'openrouter',
       enabled: true,
       overallRank: model.overallRanking,
-      toolCallType: model.supportedParameters.includes('tools')
-        ? 'native'
-        : 'manual',
+      toolCallType: model.openrouterId
+        ? model.supportedParameters.includes('tools')
+          ? 'native'
+          : 'manual'
+        : 'unknown',
       reasoning: model.supportedParameters.includes('reasoning')
     })) as Model[]
 
     return modelsForAPI
-  }
-})
-
-export const updateGatewayModels = internalAction({
-  args: {},
-  handler: async ctx => {
-    try {
-      const response = await fetch(
-        'https://raw.githubusercontent.com/vercel/ai/refs/heads/main/packages/gateway/src/gateway-language-model-settings.ts'
-      )
-      if (!response.ok) {
-        throw new Error(`Failed to fetch Gateway types: ${response.status}`)
-      }
-
-      const typeContent = await response.text()
-
-      // Extract GatewayModelId type definition
-      const gatewayModelIdMatch = typeContent.match(
-        /export type GatewayModelId\s*=\s*([\s\S]*?)(?:\s*\|\s*\(string\s*&\s*\{\}\);?|;)/m
-      )
-
-      if (!gatewayModelIdMatch) {
-        console.error('Could not find GatewayModelId type in fetched content')
-        return { success: false, error: 'Type not found' }
-      }
-
-      // Extract all string literals from the type
-      const stringLiterals = gatewayModelIdMatch[1].match(/'([^']+)'/g)
-      if (!stringLiterals) {
-        console.error('Could not extract model IDs from type')
-        return { success: false, error: 'No model IDs found' }
-      }
-
-      const gatewayModelIds = stringLiterals.map(s => s.slice(1, -1)) // Remove quotes
-      console.log(`Found ${gatewayModelIds.length} Gateway model IDs`)
-
-      // Gateway ID to OpenRouter ID mapping
-      const gatewayToOpenRouterMapping: Record<string, string[]> = {
-        // Anthropic Claude mappings
-        // Vercel... there has to be a better way to do this...
-        'anthropic/claude-4-opus': ['anthropic/claude-opus-4'],
-        'anthropic/claude-4-sonnet': ['anthropic/claude-sonnet-4'],
-        'anthropic/claude-4.1-opus': ['anthropic/claude-opus-4.1'],
-
-        // Qwen/Alibaba mappings
-        'alibaba/qwen-3-14b': ['qwen/qwen3-14b'],
-        'alibaba/qwen-3-235b': ['qwen/qwen3-235b-a22b-2507'],
-        'alibaba/qwen-3-30b': ['qwen/qwen3-30b-a3b'],
-        'alibaba/qwen-3-32b': ['qwen/qwen3-32b'],
-        'alibaba/qwen3-coder': ['qwen/qwen3-coder'],
-
-        // Amazon Nova mappings
-        'amazon/nova-lite': ['amazon/nova-lite-v1'],
-        'amazon/nova-micro': ['amazon/nova-micro-v1'],
-        'amazon/nova-pro': ['amazon/nova-pro-v1'],
-
-        // DeepSeek mappings
-        'deepseek/deepseek-v3': ['deepseek/deepseek-chat-v3-0324'],
-
-        // Google mappings
-        'google/gemini-2.0-flash': ['google/gemini-2.0-flash-001'],
-        'google/gemini-2.0-flash-lite': ['google/gemini-2.0-flash-lite-001'],
-        'google/gemma-2-9b': ['google/gemma-2-9b-it'],
-
-        // Meta LLaMA mappings
-        'meta/llama-3-70b': ['meta-llama/llama-3-70b-instruct'],
-        'meta/llama-3-8b': ['meta-llama/llama-3-8b-instruct'],
-        'meta/llama-3.1-70b': ['meta-llama/llama-3.1-70b-instruct'],
-        'meta/llama-3.1-8b': ['meta-llama/llama-3.1-8b-instruct'],
-        'meta/llama-4-maverick': ['meta-llama/llama-4-maverick'],
-        'meta/llama-4-scout': ['meta-llama/llama-4-scout']
-      }
-
-      // Get all database models
-      const dbModels = await ctx.runQuery(internal.models.getAllModels)
-      console.log('dbModels', dbModels)
-      const dbModelMap = new Map(
-        dbModels.map(model => [model.openrouterId, model])
-      )
-
-      let matchedCount = 0
-      let notFoundInDb = []
-
-      // Reset all gatewayId fields to null first
-      for (const dbModel of dbModels) {
-        if (dbModel.gatewayId) {
-          await ctx.runMutation(internal.models.updateModelGatewayStatus, {
-            openrouterId: dbModel.openrouterId,
-            gatewayId: undefined
-          })
-        }
-      }
-
-      // Check each gateway model ID against database
-      for (const gatewayModelId of gatewayModelIds) {
-        let foundMatch = false
-
-        // First try direct match
-        let dbModel = dbModelMap.get(gatewayModelId)
-        if (dbModel) {
-          await ctx.runMutation(internal.models.updateModelGatewayStatus, {
-            openrouterId: gatewayModelId,
-            gatewayId: gatewayModelId
-          })
-          matchedCount++
-          foundMatch = true
-        } else {
-          // Try mapped alternatives
-          const mappedIds = gatewayToOpenRouterMapping[gatewayModelId] || []
-          for (const mappedId of mappedIds) {
-            dbModel = dbModelMap.get(mappedId)
-            if (dbModel) {
-              await ctx.runMutation(internal.models.updateModelGatewayStatus, {
-                openrouterId: mappedId,
-                gatewayId: gatewayModelId
-              })
-              matchedCount++
-              foundMatch = true
-              console.log(`Mapped ${gatewayModelId} -> ${mappedId}`)
-              break // Found a match, stop looking
-            }
-          }
-        }
-
-        if (!foundMatch) {
-          notFoundInDb.push(gatewayModelId)
-        }
-      }
-
-      console.log('Gateway model update results:', {
-        totalGatewayModels: gatewayModelIds.length,
-        matchedInDb: matchedCount,
-        notFoundInDb: notFoundInDb.length,
-        notFoundList: notFoundInDb.slice(0, 20) // Limit logging
-      })
-    } catch (error) {
-      console.error('Error updating Gateway models:', error)
-      throw error
-    }
-  }
-})
-
-export const updateModelGatewayStatus = internalMutation({
-  args: {
-    openrouterId: v.string(),
-    gatewayId: v.optional(v.string())
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('models')
-      .withIndex('by_openrouter_id', q =>
-        q.eq('openrouterId', args.openrouterId)
-      )
-      .first()
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        gatewayId: args.gatewayId,
-        lastUpdated: Date.now()
-      })
-    }
   }
 })
 

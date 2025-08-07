@@ -7,6 +7,7 @@ import {
   Brain,
   Check,
   ChevronsUpDown,
+  CircleHelp,
   WrenchIcon,
   XCircleIcon
 } from 'lucide-react'
@@ -115,7 +116,7 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                 src={
                   providerImages[
                     selectedModel.provider as keyof typeof providerImages
-                  ] ?? '/providers/logos/openrouter.svg'
+                  ] ?? '/providers/logos/unknown.svg'
                 }
                 alt={selectedModel.provider}
                 width={18}
@@ -155,14 +156,16 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                         onSelect={handleModelSelect}
                         className={cn(
                           'flex justify-between',
-                          model.toolCallType !== 'native' && 'opacity-75'
+                          model.toolCallType !== 'native' &&
+                            model.providerId === 'openrouter' &&
+                            'opacity-75'
                         )}
                       >
                         <Image
                           src={
                             providerImages[
                               model.provider as keyof typeof providerImages
-                            ] ?? '/providers/logos/openrouter.svg'
+                            ] ?? '/providers/logos/unknown.svg'
                           }
                           alt={model.provider}
                           width={18}
@@ -174,6 +177,7 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                             className={cn(
                               'text-xs font-medium',
                               model.toolCallType !== 'native' &&
+                                model.providerId === 'openrouter' &&
                                 'text-destructive'
                             )}
                           >
@@ -202,7 +206,8 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                                   </TooltipContent>
                                 </Tooltip>
                               )}
-                              {model.toolCallType === 'native' ? (
+                              {model.toolCallType === 'native' &&
+                              model.providerId === 'openrouter' ? (
                                 <Tooltip>
                                   <TooltipTrigger>
                                     <div
@@ -222,7 +227,7 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                                     <p>Supports Tool Calls</p>
                                   </TooltipContent>
                                 </Tooltip>
-                              ) : (
+                              ) : model.providerId === 'openrouter' ? (
                                 <Tooltip>
                                   <TooltipTrigger>
                                     <div
@@ -248,7 +253,34 @@ export function ModelSelector({ models }: ModelSelectorProps) {
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>
-                              )}
+                              ) : null}
+
+                              {model.providerId === 'gateway' &&
+                                model.toolCallType === 'unknown' && (
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <div
+                                        className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-md text-[var(--color)] dark:text-[var(--color-dark)]"
+                                        style={
+                                          {
+                                            '--color-dark': 'hsl(0 0% 74%)',
+                                            '--color': 'hsl(0 0% 52%)'
+                                          } as React.CSSProperties
+                                        }
+                                      >
+                                        <div className="absolute inset-0 bg-current opacity-20 dark:opacity-15" />
+                                        <CircleHelp className="h-4 w-4" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      <p>
+                                        Vercel Gateway does not provide
+                                        information about tool calls or
+                                        reasoning capabilities of this model.
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
 
                               <Tooltip>
                                 <TooltipTrigger>
