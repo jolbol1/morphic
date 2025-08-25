@@ -1,4 +1,7 @@
+import { api } from '@/convex/_generated/api'
 import { UploadedFile } from '@/lib/types'
+import { useUser } from '@clerk/nextjs'
+import { useMutation } from 'convex/react'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -18,6 +21,9 @@ export function useFileDropzone({
   allowedTypes = ['image/png', 'image/jpeg', 'application/pdf']
 }: UseFileDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false)
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl)
+  const storeImage = useMutation(api.files.storeImage)
+  const { user } = useUser()
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -62,19 +68,32 @@ export function useFileDropzone({
 
       await Promise.all(
         initialFiles.map(async uf => {
-          const formData = new FormData()
-          formData.append('file', uf.file)
-          formData.append('chatId', chatId)
-
           try {
-            const res = await fetch('/api/upload', {
+            const postUrl = await generateUploadUrl()
+
+            const res = await fetch(postUrl, {
               method: 'POST',
-              body: formData
+              headers: { 'Content-Type': uf!.file.type },
+              body: uf.file
             })
 
-            if (!res.ok) throw new Error('Upload failed')
+            if (!res.ok) {
+              throw new Error('Upload failed')
+            }
 
-            const { file: uploaded } = await res.json()
+            const { storageId } = await res.json()
+            const userFile = await storeImage({
+              storageId,
+              userId: user?.id,
+              chatId: chatId,
+              filename: uf.file.name,
+              mediaType: uf.file.type,
+              type: 'image'
+            })
+
+            if (!userFile) {
+              throw new Error('Failed to store image')
+            }
 
             setUploadedFiles(prev =>
               prev.map(f =>
@@ -82,9 +101,9 @@ export function useFileDropzone({
                   ? {
                       ...f,
                       status: 'uploaded',
-                      url: uploaded.url,
-                      name: uploaded.name,
-                      key: uploaded.key
+                      url: userFile.url,
+                      name: userFile.filename,
+                      key: userFile.filename
                     }
                   : f
               )
@@ -100,7 +119,16 @@ export function useFileDropzone({
         })
       )
     },
-    [allowedTypes, maxFiles, uploadedFiles, setUploadedFiles, chatId]
+    [
+      uploadedFiles.length,
+      maxFiles,
+      setUploadedFiles,
+      allowedTypes,
+      generateUploadUrl,
+      storeImage,
+      user?.id,
+      chatId
+    ]
   )
 
   return {

@@ -7,6 +7,19 @@ export const persistableMessage = v.object({
 })
 
 export default defineSchema({
+  // User files table - stores user files
+  userFiles: defineTable({
+    body: v.id('_storage'),
+    userId: v.string(),
+    chatId: v.string(),
+    filename: v.string(),
+    url: v.string(),
+    mediaType: v.string(),
+    type: v.string()
+  })
+    .index('by_user_id', ['userId'])
+    .index('by_chat_id', ['chatId']),
+
   // Chats table - stores chat sessions
   chats: defineTable({
     title: v.string(),

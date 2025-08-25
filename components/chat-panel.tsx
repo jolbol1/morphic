@@ -1,8 +1,8 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
-import { useRouter } from 'next/navigation'
 
 import { UseChatHelpers } from '@ai-sdk/react'
 import { ArrowUp, ChevronDown, MessageCirclePlus, Square } from 'lucide-react'
@@ -13,12 +13,15 @@ import type { UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
 import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 
+import { api } from '@/convex/_generated/api'
+import { useUser } from '@clerk/nextjs'
+import { useMutation } from 'convex/react'
 import { useArtifact } from './artifact/artifact-context'
-import { Button } from './ui/button'
-import { IconLogo } from './ui/icons'
 import { EmptyScreen } from './empty-screen'
 import { FileUploadButton } from './file-upload-button'
 import { ModelSelector } from './model-selector'
+import { Button } from './ui/button'
+import { IconLogo } from './ui/icons'
 import { UploadedFileList } from './uploaded-file-list'
 
 interface ChatPanelProps {
@@ -66,6 +69,9 @@ export function ChatPanel({
   const [enterDisabled, setEnterDisabled] = useState(false) // Disable Enter after composition ends
   const { close: closeArtifact } = useArtifact()
   const isLoading = status === 'submitted' || status === 'streaming'
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl)
+  const storeImage = useMutation(api.files.storeImage)
+  const { user } = useUser()
 
   const handleCompositionStart = () => setIsComposing(true)
 
@@ -231,29 +237,42 @@ export function ChatPanel({
                   setUploadedFiles(prev => [...prev, ...newFiles])
                   await Promise.all(
                     newFiles.map(async uf => {
-                      const formData = new FormData()
-                      formData.append('file', uf.file)
-                      formData.append('chatId', chatId)
                       try {
-                        const res = await fetch('/api/upload', {
+                        const postUrl = await generateUploadUrl()
+
+                        const res = await fetch(postUrl, {
                           method: 'POST',
-                          body: formData
+                          headers: { 'Content-Type': uf!.file.type },
+                          body: uf.file
                         })
 
                         if (!res.ok) {
                           throw new Error('Upload failed')
                         }
 
-                        const { file: uploaded } = await res.json()
+                        const { storageId } = await res.json()
+                        const userFile = await storeImage({
+                          storageId,
+                          userId: user?.id,
+                          chatId: chatId,
+                          filename: uf.file.name,
+                          mediaType: uf.file.type,
+                          type: 'image'
+                        })
+
+                        if (!userFile) {
+                          throw new Error('Failed to store image')
+                        }
+
                         setUploadedFiles(prev =>
                           prev.map(f =>
                             f.file === uf.file
                               ? {
                                   ...f,
                                   status: 'uploaded',
-                                  url: uploaded.url,
-                                  name: uploaded.filename,
-                                  key: uploaded.key
+                                  url: userFile.url,
+                                  name: userFile.filename,
+                                  key: userFile.filename
                                 }
                               : f
                           )

@@ -14,6 +14,7 @@ import ArtifactRoot from '@/components/artifact/artifact-root'
 import Header from '@/components/header'
 import { ThemeProvider } from '@/components/theme-provider'
 
+import { ConvexClientProvider } from '@/components/providers/convex'
 import './globals.css'
 
 const fontSans = FontSans({
@@ -54,34 +55,36 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <body
-          className={cn(
-            'min-h-screen flex flex-col font-sans antialiased',
-            fontSans.variable
-          )}
-        >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
+    <ConvexClientProvider>
+      <ClerkProvider>
+        <html lang="en" suppressHydrationWarning>
+          <body
+            className={cn(
+              'min-h-screen flex flex-col font-sans antialiased',
+              fontSans.variable
+            )}
           >
-            <SidebarProvider defaultOpen>
-              <AppSidebar />
-              <div className="flex flex-col flex-1">
-                <Header />
-                <main className="flex flex-1 min-h-0">
-                  <ArtifactRoot>{children}</ArtifactRoot>
-                </main>
-              </div>
-            </SidebarProvider>
-            <Toaster />
-            <Analytics />
-          </ThemeProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <SidebarProvider defaultOpen>
+                <AppSidebar />
+                <div className="flex flex-col flex-1">
+                  <Header />
+                  <main className="flex flex-1 min-h-0">
+                    <ArtifactRoot>{children}</ArtifactRoot>
+                  </main>
+                </div>
+              </SidebarProvider>
+              <Toaster />
+              <Analytics />
+            </ThemeProvider>
+          </body>
+        </html>
+      </ClerkProvider>
+    </ConvexClientProvider>
   )
 }
