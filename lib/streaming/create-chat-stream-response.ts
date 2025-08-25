@@ -18,6 +18,7 @@ import {
 } from '../utils/context-window'
 import { getTextFromParts } from '../utils/message-utils'
 
+import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai'
 import { handleStreamFinish } from './helpers/handle-stream-finish'
 import { prepareMessages } from './helpers/prepare-messages'
 import type { StreamContext } from './helpers/types'
@@ -109,18 +110,27 @@ export async function createChatStreamResponse(
 
         // Stream with the research agent
         writer.merge(
-          researchAgent.stream({ messages: modelMessages }).toUIMessageStream({
-            onFinish: async ({ responseMessage, isAborted }) => {
-              if (isAborted || !responseMessage) return
-              await handleStreamFinish(
-                writer,
-                responseMessage,
-                messagesToModel,
-                context,
-                titlePromise
-              )
-            }
-          })
+          researchAgent
+            .stream({
+              messages: modelMessages,
+              providerOptions: {
+                openai: {
+                  reasoningSummary: 'auto'
+                } as OpenAIResponsesProviderOptions
+              }
+            })
+            .toUIMessageStream({
+              onFinish: async ({ responseMessage, isAborted }) => {
+                if (isAborted || !responseMessage) return
+                await handleStreamFinish(
+                  writer,
+                  responseMessage,
+                  messagesToModel,
+                  context,
+                  titlePromise
+                )
+              }
+            })
         )
       } catch (error) {
         console.error('Stream execution error:', error)

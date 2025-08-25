@@ -107,7 +107,6 @@ export const upsertMessage = mutation({
       chatId: chat._id,
       role: args.message.role
     }
-    console.log('[UpsertMessage] messageData', messageData)
     const messageId = await ctx.db.insert('messages', messageData)
 
     const parts = await ctx.db
@@ -126,7 +125,6 @@ export const upsertMessage = mutation({
         if (dbParts.length > 0) {
           await Promise.all(
             dbParts.map((part: any) => {
-              console.log('[UpsertMessage] part', part)
               return ctx.db.insert('parts', part)
             })
           )
@@ -306,7 +304,6 @@ export const addMessage = mutation({
       attachments
     }
 
-    console.log('[AddMessage] valuesToInsert', valuesToInsert)
     const messageId = await ctx.db.insert('messages', valuesToInsert)
 
     return await ctx.db.get(messageId)
@@ -545,7 +542,6 @@ export const loadChat = query({
       })
     )
 
-    console.log('[LoadChat] messagesWithParts', messagesWithParts)
     return messagesWithParts
   }
 })
@@ -591,7 +587,6 @@ export const loadChatWithMessages = query({
       })
     )
 
-    console.log('[LoadChatWithMessages] messagesWithParts', messagesWithParts)
     const result = { ...chat, messages: messagesWithParts }
     return result
   }
