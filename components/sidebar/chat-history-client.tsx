@@ -1,100 +1,46 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-
-import { toast } from 'sonner'
-
 import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu
 } from '@/components/ui/sidebar'
 
+import { api } from '@/convex/_generated/api'
 import { Doc } from '@/convex/_generated/dataModel'
+import { useUser } from '@clerk/nextjs'
+import { usePaginatedQuery } from 'convex/react'
+import { useEffect, useRef } from 'react'
 import { ChatHistorySkeleton } from './chat-history-skeleton'
 import { ChatMenuItem } from './chat-menu-item'
 import { ClearHistoryAction } from './clear-history-action'
 
-interface ChatPageResponse {
-  chats: Doc<'chats'>[]
-  nextOffset: number | null
-}
-
 export function ChatHistoryClient() {
-  const [chats, setChats] = useState<Doc<'chats'>[]>([])
-  const [nextOffset, setNextOffset] = useState<number | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { user } = useUser()
   const loadMoreRef = useRef<HTMLDivElement>(null)
-  const [isPending, startTransition] = useTransition()
 
-  const fetchInitialChats = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/chats?offset=0&limit=20`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch initial chat history')
-      }
-      const { chats: dbChats, nextOffset: newNextOffset } =
-        (await response.json()) as ChatPageResponse
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.chat.getChatsPaginated,
+    { userId: user?.id ?? '' },
+    { initialNumItems: 2 }
+  )
 
-      setChats(dbChats)
-      setNextOffset(newNextOffset)
-    } catch (error) {
-      console.error('Failed to load initial chats:', error)
-      toast.error('Failed to load chat history.')
-      setNextOffset(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchInitialChats()
-  }, [fetchInitialChats])
-
-  useEffect(() => {
-    const handleHistoryUpdate = () => {
-      startTransition(() => {
-        fetchInitialChats()
-      })
-    }
-    window.addEventListener('chat-history-updated', handleHistoryUpdate)
-    return () => {
-      window.removeEventListener('chat-history-updated', handleHistoryUpdate)
-    }
-  }, [fetchInitialChats])
-
-  const fetchMoreChats = useCallback(async () => {
-    if (isLoading || nextOffset === null) return
-
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/chats?offset=${nextOffset}&limit=20`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch more chat history')
-      }
-      const { chats: dbChats, nextOffset: newNextOffset } =
-        (await response.json()) as ChatPageResponse
-
-      setChats(prevChats => [...prevChats, ...dbChats])
-      setNextOffset(newNextOffset)
-    } catch (error) {
-      console.error('Failed to load more chats:', error)
-      toast.error('Failed to load more chat history.')
-      setNextOffset(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [nextOffset, isLoading])
+  const isLoading = status === 'LoadingFirstPage' || status === 'LoadingMore'
 
   useEffect(() => {
     const observerRefValue = loadMoreRef.current
-    if (!observerRefValue || nextOffset === null || isPending) return
+    if (
+      !observerRefValue ||
+      status === 'Exhausted' ||
+      status === 'LoadingFirstPage' ||
+      status === 'LoadingMore'
+    )
+      return
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !isLoading && !isPending) {
-          fetchMoreChats()
+        if (entry.isIntersecting && !isLoading) {
+          loadMore(2)
         }
       },
       { threshold: 0.1 }
@@ -107,9 +53,9 @@ export function ChatHistoryClient() {
         observer.unobserve(observerRefValue)
       }
     }
-  }, [fetchMoreChats, nextOffset, isLoading, isPending])
+  }, [isLoading, status, loadMore])
 
-  const isHistoryEmpty = !isLoading && !chats.length && nextOffset === null
+  const isHistoryEmpty = status === 'Exhausted' && results.length === 0
 
   return (
     <div className="flex flex-col flex-1 h-full">
@@ -120,20 +66,19 @@ export function ChatHistoryClient() {
         </div>
       </SidebarGroup>
       <div className="flex-1 overflow-y-auto mb-2 relative">
-        {isHistoryEmpty && !isPending ? (
+        {isHistoryEmpty && (
           <div className="px-2 text-foreground/30 text-sm text-center py-4">
             No search history
           </div>
-        ) : (
-          <SidebarMenu>
-            {chats.map(
-              (chat: Doc<'chats'>) =>
-                chat && <ChatMenuItem key={chat.chatId} chat={chat} />
-            )}
-          </SidebarMenu>
         )}
+        <SidebarMenu>
+          {results.map(
+            (chat: Doc<'chats'>) =>
+              chat && <ChatMenuItem key={chat.chatId} chat={chat} />
+          )}
+        </SidebarMenu>
         <div ref={loadMoreRef} style={{ height: '1px' }} />
-        {(isLoading || isPending) && (
+        {status === 'LoadingFirstPage' && (
           <div className="py-2">
             <ChatHistorySkeleton />
           </div>

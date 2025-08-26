@@ -1,9 +1,11 @@
 import { createId } from '@paralleldrive/cuid2'
 import { ToolCallPart, UIMessage } from 'ai'
+import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { Id } from './_generated/dataModel'
 import { mutation, query, QueryCtx } from './_generated/server'
 import { buildUIMessageFromDB, mapUIMessagePartsToDBParts } from './mappings'
+
 import schema from './schema'
 
 export const createChat = mutation({
@@ -201,34 +203,22 @@ export const getChats = query({
   }
 })
 
-//TODO: Use pagination from convex. https://docs.convex.dev/database/pagination
-export const getChatsPage = query({
+export const getChatsPaginated = query({
   args: v.object({
-    userId: v.string(),
-    limit: v.optional(v.number()),
-    offset: v.optional(v.number())
+    paginationOpts: paginationOptsValidator,
+    userId: v.string()
   }),
   handler: async (ctx, args) => {
-    const { userId, limit = 20, offset = 0 } = args
+    const { userId } = args
 
     // Collect all chats for the user, ordered by creation time (most recent first)
     const allChats = await ctx.db
       .query('chats')
       .withIndex('by_user_id', q => q.eq('userId', userId))
       .order('desc')
-      .collect()
+      .paginate(args.paginationOpts)
 
-    // Manual offset pagination
-    const startIndex = offset
-    const endIndex = startIndex + limit
-    const chats = allChats.slice(startIndex, endIndex)
-
-    const nextOffset = endIndex < allChats.length ? endIndex : null
-
-    return {
-      chats,
-      nextOffset
-    }
+    return allChats
   }
 })
 
