@@ -34,7 +34,9 @@ export default defineSchema({
     id: v.string(),
     chatId: v.id('chats'),
     role: v.string()
-  }).index('by_chat_id', ['chatId']),
+  })
+    .index('by_chat_id', ['chatId'])
+    .index('by_message_id', ['id']),
 
   // Parts table - stores different types of message parts with union type structure
   parts: defineTable(

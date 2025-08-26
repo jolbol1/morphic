@@ -182,16 +182,30 @@ export const upsertMessage = mutation({
       chatId: chat._id,
       role: args.message.role
     }
-    const savedId = await ctx.db.insert('messages', messageData)
 
-    const parts = await ctx.db
-      .query('parts')
-      .withIndex('by_message_id', q => q.eq('messageId', savedId))
-      .collect()
+    let messageId = messageData.id
 
-    parts.forEach(part => {
-      ctx.db.delete(part._id)
-    })
+    const existing = await ctx.db
+      .query('messages')
+      .withIndex('by_message_id', q => q.eq('id', messageId))
+      .first()
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        role: args.message.role
+      })
+
+      const parts = await ctx.db
+        .query('parts')
+        .withIndex('by_message_id', q => q.eq('messageId', messageId))
+        .collect()
+
+      parts.forEach(part => {
+        ctx.db.delete(part._id)
+      })
+    } else {
+      messageId = await ctx.db.insert('messages', messageData)
+    }
 
     if (args.message.parts && args.message.parts.length > 0) {
       // 3. Insert new parts
@@ -210,7 +224,7 @@ export const upsertMessage = mutation({
       }
     }
 
-    return await ctx.db.get(savedId)
+    return
   }
 })
 
@@ -883,14 +897,22 @@ export const deleteMessagesFromIndex = mutation({
       .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
       .collect()
 
+    console.log('ALL MESSAGES: ', JSON.stringify(allMessages, null, 2))
+
     const messageIndex = allMessages.findIndex(m => m.id === messageId)
 
     if (messageIndex === -1) {
       return { count: 0 }
     }
 
+    console.log('MESSAGE INDEX: ', messageIndex)
     // Get messages to delete (from index onwards)
     const messagesToDelete = allMessages.slice(messageIndex)
+
+    console.log(
+      'MESSAGES TO DELETE: ',
+      JSON.stringify(messagesToDelete, null, 2)
+    )
     const messageRealIds = messagesToDelete.map(m => m._id)
 
     const partsToDelete = await Promise.all(
