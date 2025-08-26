@@ -1,5 +1,7 @@
 import { UIMessage } from 'ai'
 
+import { perfLog, perfTime } from '@/lib/utils/perf-logging'
+
 import { api } from '@/convex/_generated/api'
 import { fetchMutationWithToken, fetchQueryWithToken } from '@/lib/hooks/convex'
 import { createId } from '@paralleldrive/cuid2'
@@ -11,15 +13,18 @@ export async function prepareMessages(
   context: StreamContext,
   message: UIMessage | null
 ): Promise<UIMessage[]> {
-  const { chatId, trigger, messageId, initialChat } = context
+  const { chatId, trigger, messageId, initialChat, isNewChat } = context
+  const startTime = performance.now()
+  perfLog(`prepareMessages - Start: trigger=${trigger}, isNewChat=${isNewChat}`)
 
-  if (trigger === 'regenerate-assistant-message' && messageId) {
-    // Handle regeneration
-    const currentChat =
-      initialChat ||
-      (await fetchQueryWithToken(api.chat.loadChatWithMessages, {
+  if (trigger === 'regenerate-message' && messageId) {
+    // Handle regeneration - use initialChat if available to avoid DB call
+    let currentChat = initialChat
+    if (!currentChat) {
+      currentChat = await fetchQueryWithToken(api.chat.loadChatWithMessages, {
         chatId
-      }))
+      })
+    }
     if (!currentChat || !currentChat.messages.length) {
       throw new Error('No messages found')
     }
@@ -89,23 +94,53 @@ export async function prepareMessages(
       id: message.id || createId()
     }
 
+    // Optimize for new chats: create chat and save message together
+    if (isNewChat) {
+      // Use createChatWithFirstMessage for atomic operation
+      const createStart = performance.now()
+      await fetchMutationWithToken(api.chat.createChatWithFirstMessage, {
+        chatId,
+        message: messageWithId,
+        title: DEFAULT_CHAT_TITLE
+      })
+      perfTime('createChatWithFirstMessage completed', createStart)
+      perfTime('prepareMessages - Total', startTime)
+      return [messageWithId]
+    }
+
+    // For existing chats
     if (!initialChat) {
+      const createStart = performance.now()
       await fetchMutationWithToken(api.chat.createChat, {
         chatId,
         title: DEFAULT_CHAT_TITLE
       })
+      perfTime('createChat completed', createStart)
     }
 
+    const upsertStart = performance.now()
     await fetchMutationWithToken(api.chat.upsertMessage, {
       chatId,
       message: messageWithId
     })
+    perfTime('upsertMessage completed', upsertStart)
+
+    // If we have initialChat, append the new message instead of fetching all messages
+    if (initialChat && initialChat.messages) {
+      perfTime('prepareMessages - Total (using cached chat)', startTime)
+      return [...initialChat.messages, messageWithId]
+    }
+
+    // Fallback to fetching if no initialChat
+    const loadStart = performance.now()
     const updatedChat = await fetchQueryWithToken(
       api.chat.loadChatWithMessages,
       {
         chatId
       }
     )
+    perfTime('loadChat (fallback) completed', loadStart)
+    perfTime('prepareMessages - Total', startTime)
     return updatedChat?.messages || [messageWithId]
   }
 }

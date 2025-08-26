@@ -16,7 +16,7 @@ import { Citing } from './custom-link'
 
 import 'katex/dist/katex.min.css'
 
-export function BotMessage({
+export function MarkdownMessage({
   message,
   className,
   citationMaps
@@ -40,7 +40,10 @@ export function BotMessage({
   const customComponents = {
     code(props: any) {
       const { children, className, ...rest } = props
-      const inline = !('data-language' in props)
+      // Check if it's inline code or code block based on className presence
+      // Code blocks have className like "language-javascript", inline code has no className
+      const match = /language-(\w+)/.exec(className || '')
+      const inline = !match
 
       if (children && typeof children === 'string') {
         if (children === '▍') {
@@ -48,7 +51,6 @@ export function BotMessage({
         }
 
         const processedChildren = children.replace('`▍`', '▍')
-        const match = /language-(\w+)/.exec(className || '')
 
         if (inline) {
           return (

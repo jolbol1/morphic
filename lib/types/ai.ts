@@ -1,15 +1,24 @@
-import type { InferUITool, UIMessage as AIMessage } from 'ai'
+import type { ReasoningPart, TextPart } from '@ai-sdk/provider-utils'
+import type { UIMessage as AIMessage, InferUITool } from 'ai'
 
 import { fetchTool } from '@/lib/tools/fetch'
 import { askQuestionTool } from '@/lib/tools/question'
 import { searchTool } from '@/lib/tools/search'
-import { type TodoItem } from '@/lib/tools/todo'
+import { createTodoTools, type TodoItem } from '@/lib/tools/todo'
 
 // Re-export TodoItem for external use
 export type { TodoItem }
 
+// Define metadata type for messages
+export interface UIMessageMetadata {
+  traceId?: string
+  feedbackScore?: number | null
+  modelId?: string
+  [key: string]: any
+}
+
 export type UIMessage<
-  TMetadata = unknown,
+  TMetadata = UIMessageMetadata,
   TDataTypes = UIDataTypes,
   TTools = UITools
 > = AIMessage
@@ -33,22 +42,17 @@ export type DataRelatedQuestionsPart = {
 
 export type DataPart = DataRelatedQuestionsPart
 
+// Create todo tools instance for type inference
+const todoTools = createTodoTools()
+
 export type UITools = {
   search: InferUITool<typeof searchTool>
   fetch: InferUITool<typeof fetchTool>
   askQuestion: InferUITool<typeof askQuestionTool>
+  todoWrite: InferUITool<typeof todoTools.todoWrite>
+  todoRead: InferUITool<typeof todoTools.todoRead>
   // Dynamic tools will be added at runtime
   [key: string]: any
-}
-
-export type TextPart = {
-  type: 'text'
-  text: string
-}
-
-export type ReasoningPart = {
-  type: 'reasoning'
-  text: string
 }
 
 export type ToolPart<T extends keyof UITools = keyof UITools> = {
@@ -64,23 +68,4 @@ export type ToolPart<T extends keyof UITools = keyof UITools> = {
   errorText?: string
 }
 
-// Extended tool parts for specific tools
-export type TodoToolPart = {
-  type: 'tool-todoWrite' | 'tool-todoRead'
-  toolCallId: string
-  state:
-    | 'input-streaming'
-    | 'input-available'
-    | 'output-available'
-    | 'output-error'
-  input?: { todos?: TodoItem[] }
-  output?: {
-    todos?: TodoItem[]
-    message?: string
-    completedCount?: number
-    totalCount?: number
-  }
-  errorText?: string
-}
-
-export type Part = TextPart | ReasoningPart | ToolPart | TodoToolPart
+export type Part = TextPart | ReasoningPart | ToolPart

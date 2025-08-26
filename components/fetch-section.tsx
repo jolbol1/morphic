@@ -17,24 +17,20 @@ interface FetchSectionProps {
 export function FetchSection({ tool }: FetchSectionProps) {
   const url = tool.input?.url
 
-  // Determine the fetch type based on the tool input
-  const fetchType =
-    tool.input?.type === 'api' ? 'API Retrieve' : 'Regular Fetch'
-
   // Determine the status based on tool output availability
   let displayStatus: 'fetching' | 'success' | 'error' = 'fetching'
   let error: string | undefined
   let title: string | undefined
   let contentLength: number | undefined
 
-  // Check if output is available
-  if (!tool.output) {
-    // Still fetching
-    displayStatus = 'fetching'
-  } else if (tool.state === 'output-error') {
+  // Check tool state first
+  if (tool.state === 'output-error') {
     // Error state
     displayStatus = 'error'
     error = tool.errorText || 'Failed to retrieve content'
+  } else if (!tool.output) {
+    // Still fetching
+    displayStatus = 'fetching'
   } else {
     // Success state - we have output
     const data = tool.output as SearchResultsType
@@ -56,7 +52,6 @@ export function FetchSection({ tool }: FetchSectionProps) {
         contentLength={contentLength}
         status={displayStatus}
         error={error}
-        fetchType={fetchType}
       />
     </div>
   )

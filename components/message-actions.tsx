@@ -7,9 +7,9 @@ import { toast } from 'sonner'
 import type { UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
 import { cn } from '@/lib/utils'
 
-import { Button } from './ui/button'
 import { ChatShare } from './chat-share'
 import { RetryButton } from './retry-button'
+import { Button } from './ui/button'
 
 interface MessageActionsProps {
   message: string
@@ -19,6 +19,7 @@ interface MessageActionsProps {
   enableShare?: boolean
   className?: string
   status?: UseChatHelpers<UIMessage<unknown, UIDataTypes, UITools>>['status']
+  visible?: boolean
 }
 
 export function MessageActions({
@@ -28,7 +29,8 @@ export function MessageActions({
   chatId,
   enableShare,
   className,
-  status
+  status,
+  visible = true
 }: MessageActionsProps) {
   const isLoading = status === 'submitted' || status === 'streaming'
 
@@ -41,7 +43,7 @@ export function MessageActions({
     <div
       className={cn(
         'flex items-center gap-0.5 self-end transition-opacity duration-200',
-        isLoading ? 'opacity-0' : 'opacity-100',
+        !visible || isLoading ? 'opacity-0' : 'opacity-100',
         className
       )}
     >

@@ -1,13 +1,13 @@
 'use client'
 
-import { Check, Lightbulb, Loader2 } from 'lucide-react'
+import type { ReasoningPart } from '@ai-sdk/provider-utils'
+import { Lightbulb } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
+import { useArtifact } from '@/components/artifact/artifact-context'
 
-import { StatusIndicator } from './ui/status-indicator'
 import { CollapsibleMessage } from './collapsible-message'
 import { DefaultSkeleton } from './default-skeleton'
-import { BotMessage } from './message'
+import { MarkdownMessage } from './message'
 
 interface ReasoningContent {
   reasoning: string
@@ -25,48 +25,41 @@ export function ReasoningSection({
   isOpen,
   onOpenChange
 }: ReasoningSectionProps) {
+  const { open } = useArtifact()
   const reasoningHeader = (
-    <div className="flex items-center gap-2 w-full">
-      <div className="w-full flex flex-col">
-        <div className="flex items-center justify-between">
-          <Badge className="flex items-center gap-0.5" variant="secondary">
-            <Lightbulb size={16} />
-            {!content.isDone ? 'Thinking...' : 'Thoughts'}
-          </Badge>
-          {!content.isDone ? (
-            <Loader2
-              size={16}
-              className="animate-spin text-muted-foreground/50"
-            />
-          ) : (
-            <StatusIndicator
-              icon={Check}
-              iconClassName="text-green-500"
-            ></StatusIndicator>
-          )}
-        </div>
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={() =>
+        open({ type: 'reasoning', text: content.reasoning } as ReasoningPart)
+      }
+      className={`flex items-center gap-1 w-full text-left text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer ${!content.isDone ? 'animate-pulse' : ''}`}
+      title="Open details"
+    >
+      <Lightbulb size={14} />
+      <span>{!content.isDone ? 'Thinking...' : 'Thoughts'}</span>
+    </button>
   )
 
   if (!content) return <DefaultSkeleton />
 
+  // Return null if done and reasoning text is empty
+  if (content.isDone && !content.reasoning?.trim()) return null
+
   return (
-    <div className="flex flex-col gap-4">
-      <CollapsibleMessage
-        role="assistant"
-        isCollapsible={true}
-        header={reasoningHeader}
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-        showBorder={true}
-        showIcon={false}
-      >
-        <BotMessage
-          message={content.reasoning}
-          className="prose-p:text-muted-foreground"
-        />
-      </CollapsibleMessage>
-    </div>
+    <CollapsibleMessage
+      role="assistant"
+      isCollapsible={true}
+      header={reasoningHeader}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      showBorder={false}
+      showIcon={false}
+      variant="minimal"
+      showSeparator={false}
+    >
+      <div className="[&_p]:text-xs [&_p]:text-muted-foreground/80">
+        <MarkdownMessage message={content.reasoning} />
+      </div>
+    </CollapsibleMessage>
   )
 }

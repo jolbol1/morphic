@@ -1,9 +1,7 @@
-import type { UIMessage } from 'ai'
-
 import { api } from '@/convex/_generated/api'
 import { Doc } from '@/convex/_generated/dataModel'
-
 import { createId } from '@paralleldrive/cuid2'
+import type { UIMessage } from 'ai'
 import { fetchMutationWithToken, fetchQueryWithToken } from '../hooks/convex'
 
 // Constants
@@ -12,12 +10,14 @@ const DEFAULT_CHAT_TITLE = 'New Chat'
 /**
  * Prepares messages for regeneration by handling message deletion and retrieval
  * @param chatId The chat ID
+ * @param userId The user ID for authorization
  * @param messageId The message ID to regenerate from
  * @param message The new message (if any)
  * @returns Array of UIMessages to send to the model
  */
 export async function prepareMessagesForRegeneration(
   chatId: string,
+  userId: string,
   messageId: string,
   message: UIMessage | null
 ): Promise<UIMessage[]> {
@@ -40,8 +40,7 @@ export async function prepareMessagesForRegeneration(
     await fetchMutationWithToken(api.chat.deleteMessagesFromIndex, {
       chatId,
       messageId
-    })
-    // Use messages up to (but not including) this assistant message
+    }) // Use messages up to (but not including) this assistant message
     return currentChat.messages.slice(0, messageIndex)
   } else {
     // If it's a user message that was edited, save the updated message first
@@ -78,12 +77,14 @@ export async function prepareMessagesForRegeneration(
 /**
  * Prepares messages for normal submission by saving the new message
  * @param chatId The chat ID
+ * @param userId The user ID for authorization
  * @param message The message to submit
  * @param chat The existing chat (if any)
  * @returns Array of UIMessages to send to the model
  */
 export async function prepareMessagesForSubmission(
   chatId: string,
+  userId: string,
   message: UIMessage,
   chat: Doc<'chats'> | null
 ): Promise<UIMessage[]> {

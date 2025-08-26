@@ -16,13 +16,16 @@ import { cn } from '@/lib/utils'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { useMutation } from 'convex/react'
+import { ActionButtons } from './action-buttons'
 import { useArtifact } from './artifact/artifact-context'
-import { EmptyScreen } from './empty-screen'
 import { FileUploadButton } from './file-upload-button'
 import { ModelSelector } from './model-selector'
 import { Button } from './ui/button'
 import { IconLogo } from './ui/icons'
 import { UploadedFileList } from './uploaded-file-list'
+
+// Constants for timing delays
+const INPUT_UPDATE_DELAY_MS = 10 // Delay to ensure input value is updated before form submission
 
 interface ChatPanelProps {
   chatId: string
@@ -61,12 +64,12 @@ export function ChatPanel({
   setUploadedFiles,
   scrollContainerRef
 }: ChatPanelProps) {
-  const [showEmptyScreen, setShowEmptyScreen] = useState(false)
   const router = useRouter()
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const isFirstRender = useRef(true)
   const [isComposing, setIsComposing] = useState(false) // Composition state
   const [enterDisabled, setEnterDisabled] = useState(false) // Disable Enter after composition ends
+  const [isInputFocused, setIsInputFocused] = useState(false) // Track input focus
   const { close: closeArtifact } = useArtifact()
   const isLoading = status === 'submitted' || status === 'streaming'
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
@@ -147,9 +150,6 @@ export function ChatPanel({
       {messages.length === 0 && (
         <div className="mb-10 flex flex-col items-center gap-4">
           <IconLogo className="size-12 text-muted-foreground" />
-          <p className="text-center text-3xl font-semibold">
-            How can I help you today?
-          </p>
         </div>
       )}
       {uploadedFiles.length > 0 && (
@@ -173,7 +173,13 @@ export function ChatPanel({
           </Button>
         )}
 
-        <div className="relative flex flex-col w-full gap-2 bg-muted rounded-3xl border border-input">
+        <div
+          className={cn(
+            'relative flex flex-col w-full gap-2 bg-muted rounded-3xl border border-input transition-shadow',
+            isInputFocused &&
+              'ring-1 ring-ring/20 ring-offset-1 ring-offset-background/50'
+          )}
+        >
           <Textarea
             ref={inputRef}
             name="input"
@@ -182,15 +188,14 @@ export function ChatPanel({
             tabIndex={0}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder="Ask a question..."
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
+            placeholder="Ask anything..."
             spellCheck={false}
             value={input}
             disabled={isLoading || isToolInvocationInProgress()}
             className="resize-none w-full min-h-12 bg-transparent border-0 p-4 text-sm placeholder:text-muted-foreground focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
-            onChange={e => {
-              handleInputChange(e)
-              setShowEmptyScreen(e.target.value.length === 0)
-            }}
+            onChange={handleInputChange}
             onKeyDown={e => {
               if (
                 e.key === 'Enter' &&
@@ -207,28 +212,13 @@ export function ChatPanel({
                 textarea.form?.requestSubmit()
               }
             }}
-            onFocus={() => setShowEmptyScreen(true)}
-            onBlur={() => setShowEmptyScreen(false)}
           />
 
           {/* Bottom menu area */}
           <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2">
               <ModelSelector models={models || []} />
-            </div>
-            <div className="flex items-center gap-2">
-              {messages.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleNewChat}
-                  className="shrink-0 rounded-full group"
-                  type="button"
-                  disabled={isLoading || isToolInvocationInProgress()}
-                >
-                  <MessageCirclePlus className="size-4 group-hover:rotate-12 transition-all" />
-                </Button>
-              )}
+
               <FileUploadButton
                 onFileSelect={async files => {
                   const newFiles: UploadedFile[] = files.map(file => ({
@@ -286,10 +276,23 @@ export function ChatPanel({
                   )
                 }}
               />
+            </div>
+            <div className="flex items-center gap-2">
+              {messages.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleNewChat}
+                  className="shrink-0 rounded-full group"
+                  type="button"
+                  disabled={isLoading || isToolInvocationInProgress()}
+                >
+                  <MessageCirclePlus className="size-4 group-hover:rotate-12 transition-all" />
+                </Button>
+              )}
               <Button
                 type={isLoading ? 'button' : 'submit'}
                 size={'icon'}
-                variant={'outline'}
                 className={cn(isLoading && 'animate-pulse', 'rounded-full')}
                 disabled={
                   (input.length === 0 && !isLoading) ||
@@ -303,14 +306,29 @@ export function ChatPanel({
           </div>
         </div>
 
+        {/* Action buttons for prompt suggestions */}
         {messages.length === 0 && (
-          <EmptyScreen
-            submitMessage={message => {
+          <ActionButtons
+            onSelectPrompt={message => {
+              // Set the input value and submit
               handleInputChange({
                 target: { value: message }
               } as React.ChangeEvent<HTMLTextAreaElement>)
+              // Submit the form after a small delay to ensure the input is updated
+              setTimeout(() => {
+                inputRef.current?.form?.requestSubmit()
+              }, INPUT_UPDATE_DELAY_MS)
             }}
-            className={cn(showEmptyScreen ? 'visible' : 'invisible')}
+            onCategoryClick={category => {
+              // Set the category in the input
+              handleInputChange({
+                target: { value: category }
+              } as React.ChangeEvent<HTMLTextAreaElement>)
+              // Focus the input
+              inputRef.current?.focus()
+            }}
+            inputRef={inputRef}
+            className="mt-2"
           />
         )}
       </form>

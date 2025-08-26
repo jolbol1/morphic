@@ -36,11 +36,14 @@ export function SearchSection({
     tool.state === 'input-streaming' || tool.state === 'input-available'
   const searchResults: TypeSearchResults | undefined =
     tool.state === 'output-available' ? tool.output : undefined
+  const isError = tool.state === 'output-error'
+  const errorMessage = tool.errorText || 'Search failed'
   const query = tool.input?.query || ''
   const includeDomains = tool.input?.include_domains
-  const includeDomainsString = includeDomains
-    ? ` [${includeDomains.join(', ')}]`
-    : ''
+  const includeDomainsString =
+    includeDomains && includeDomains.length > 0
+      ? ` [${includeDomains.join(', ')}]`
+      : ''
 
   const { open } = useArtifact()
 
@@ -53,7 +56,7 @@ export function SearchSection({
     <button
       type="button"
       onClick={() => open(tool)}
-      className="flex items-center justify-between w-full text-left rounded-md p-0.5 -ml-0.5 cursor-pointer"
+      className="flex items-center justify-between w-full text-left rounded-md p-0.5 -ml-0.5 cursor-pointer overflow-hidden"
       title="Open details"
     >
       <ToolArgsSection
@@ -92,7 +95,17 @@ export function SearchSection({
             />
           </Section>
         )}
-      {isLoading && isToolLoading ? (
+      {isError ? (
+        <Section>
+          <div className="bg-card rounded-lg">
+            <div className="flex items-center gap-2 w-full">
+              <span className="text-sm text-destructive block flex-1 min-w-0">
+                {errorMessage}
+              </span>
+            </div>
+          </div>
+        </Section>
+      ) : isLoading && isToolLoading ? (
         <SearchSkeleton />
       ) : searchResults?.results && searchResults.results.length > 0 ? (
         <Section title="Sources">

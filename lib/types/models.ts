@@ -6,4 +6,5 @@ export interface Model {
   overallRank?: number
   reasoning?: boolean
   toolCallType: 'native' | 'manual' | 'unknown'
+  providerOptions?: Record<string, any>
 }

@@ -2,7 +2,10 @@ import { cookies } from 'next/headers'
 
 import { createChatStreamResponse } from '@/lib/streaming/create-chat-stream-response'
 import { Model } from '@/lib/types/models'
+import { perfLog, perfTime } from '@/lib/utils/perf-logging'
+import { resetAllCounters } from '@/lib/utils/perf-tracking'
 import { isProviderEnabled } from '@/lib/utils/registry'
+import { auth } from '@clerk/nextjs/server'
 
 export const maxDuration = 30
 
@@ -16,21 +19,31 @@ const DEFAULT_MODEL: Model = {
 }
 
 export async function POST(req: Request) {
+  const startTime = performance.now()
   const abortSignal = req.signal
+
+  // Reset counters for new request (development only)
+  if (process.env.ENABLE_PERF_LOGGING === 'true') {
+    resetAllCounters()
+  }
 
   try {
     const body = await req.json()
-    const { message, chatId, trigger, messageId } = body
+    const { message, chatId, trigger, messageId, isNewChat } = body
 
-    // Handle different triggers
-    if (trigger === 'regenerate-assistant-message') {
+    perfLog(
+      `API Route - Start: chatId=${chatId}, trigger=${trigger}, isNewChat=${isNewChat}`
+    )
+
+    // Handle different triggers using AI SDK standard values
+    if (trigger === 'regenerate-message') {
       if (!messageId) {
         return new Response('messageId is required for regeneration', {
           status: 400,
           statusText: 'Bad Request'
         })
       }
-    } else if (trigger === 'submit-user-message') {
+    } else if (trigger === 'submit-message') {
       if (!message) {
         return new Response('message is required for submission', {
           status: 400,
@@ -42,10 +55,23 @@ export async function POST(req: Request) {
     const referer = req.headers.get('referer')
     const isSharePage = referer?.includes('/share/')
 
+    const authStart = performance.now()
+    const identity = await auth()
+    const userId = identity?.userId
+    perfTime('Auth completed', authStart)
+
     if (isSharePage) {
       return new Response('Chat API is not available on share pages', {
         status: 403,
         statusText: 'Forbidden'
+      })
+    }
+
+    // Check if user is authenticated
+    if (!userId) {
+      return new Response('Authentication required', {
+        status: 401,
+        statusText: 'Unauthorized'
       })
     }
 
@@ -72,16 +98,24 @@ export async function POST(req: Request) {
       )
     }
 
-    console.log('[app/api/chat/route] selectedModel', selectedModel)
-
-    return await createChatStreamResponse({
+    const response = await createChatStreamResponse({
       message,
       model: selectedModel,
       chatId,
       trigger,
       messageId,
-      abortSignal
+      abortSignal,
+      isNewChat
     })
+
+    const totalTime = performance.now() - startTime
+    perfLog(`Total API route time: ${totalTime.toFixed(2)}ms`)
+    perfLog(`=== Summary ===`)
+    perfLog(`Chat Type: ${isNewChat ? 'NEW' : 'EXISTING'}`)
+    perfLog(`Total Time: ${totalTime.toFixed(2)}ms`)
+    perfLog(`================`)
+
+    return response
   } catch (error) {
     console.error('API route error:', error)
     return new Response('Error processing your request', {

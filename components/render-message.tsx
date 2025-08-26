@@ -1,6 +1,11 @@
 import { UseChatHelpers } from '@ai-sdk/react'
 
-import type { UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
+import type {
+  UIDataTypes,
+  UIMessage,
+  UIMessageMetadata,
+  UITools
+} from '@/lib/types/ai'
 import type { DynamicToolPart } from '@/lib/types/dynamic-tools'
 import { extractCitationMaps } from '@/lib/utils/citation'
 
@@ -23,6 +28,7 @@ interface RenderMessageProps {
   addToolResult?: (params: { toolCallId: string; result: any }) => void
   onUpdateMessage?: (messageId: string, newContent: string) => Promise<void>
   reload?: (messageId: string) => Promise<void | string | null | undefined>
+  isLatestMessage?: boolean
 }
 
 export function RenderMessage({
@@ -35,7 +41,8 @@ export function RenderMessage({
   status,
   addToolResult,
   onUpdateMessage,
-  reload
+  reload,
+  isLatestMessage = false
 }: RenderMessageProps) {
   // Extract citation maps from the message's tool outputs
   const citationMaps = extractCitationMaps(message)
@@ -103,16 +110,19 @@ export function RenderMessage({
               />
             )
           case 'text':
-            // Show actions if:
-            // 1. This is the last part and streaming is complete
-            // 2. Next part is data-relatedQuestions
-            const nextMessagePart = message.parts?.[index + 1]
+            // Find if this is the last text part in this message
+            const remainingParts = message.parts?.slice(index + 1) || []
+            const hasMoreTextParts = remainingParts.some(p => p.type === 'text')
+            const isLastTextPart = !hasMoreTextParts
+
+            // Check if streaming is complete
             const isStreamingComplete =
               status !== 'streaming' && status !== 'submitted'
-            const isLastPart = !hasNextPart
+
+            // Show actions only on the last text part of each message
+            // For the latest message, also check if streaming is complete
             const shouldShowActions =
-              (isLastPart && isStreamingComplete) || // Last part and streaming done
-              nextMessagePart?.type === 'data-relatedQuestions' // Next part is related questions
+              isLastTextPart && (isLatestMessage ? isStreamingComplete : true)
             return (
               <AnswerSection
                 key={`${messageId}-text-${index}`}
@@ -122,6 +132,7 @@ export function RenderMessage({
                 chatId={chatId}
                 showActions={shouldShowActions}
                 messageId={messageId}
+                metadata={message.metadata as UIMessageMetadata | undefined}
                 reload={reload}
                 status={status}
                 citationMaps={citationMaps}
@@ -135,8 +146,14 @@ export function RenderMessage({
                   reasoning: part.text,
                   isDone: index !== (message.parts?.length ?? 0) - 1
                 }}
-                isOpen={getIsOpen(messageId, part.type, hasNextPart)}
-                onOpenChange={open => onOpenChange(messageId, open)}
+                isOpen={getIsOpen(
+                  `${messageId}-reasoning-${index}`,
+                  part.type,
+                  hasNextPart
+                )}
+                onOpenChange={open =>
+                  onOpenChange(`${messageId}-reasoning-${index}`, open)
+                }
               />
             )
           case 'data-relatedQuestions':

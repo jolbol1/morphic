@@ -6,8 +6,11 @@ import {
   UIMessage,
   UIMessageStreamWriter
 } from 'ai'
+import { randomUUID } from 'crypto'
+import { Langfuse } from 'langfuse'
 
 import { researcher } from '@/lib/agents/researcher'
+import { isTracingEnabled } from '@/lib/utils/telemetry'
 
 import { generateChatTitle } from '../agents/title-generator'
 import {
@@ -16,12 +19,14 @@ import {
   truncateMessages
 } from '../utils/context-window'
 import { getTextFromParts } from '../utils/message-utils'
+import { perfLog, perfTime } from '../utils/perf-logging'
 
 import { api } from '@/convex/_generated/api'
-import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai'
 import { fetchQueryWithToken } from '../hooks/convex'
-import { handleStreamFinish } from './helpers/handle-stream-finish'
+import { filterReasoningParts } from './helpers/filter-reasoning-parts'
+import { persistStreamResults } from './helpers/persist-stream-results'
 import { prepareMessages } from './helpers/prepare-messages'
+import { streamRelatedQuestions } from './helpers/stream-related-questions'
 import type { StreamContext } from './helpers/types'
 import { BaseStreamConfig } from './types'
 
@@ -31,9 +36,8 @@ const DEFAULT_CHAT_TITLE = 'Untitled'
 export async function createChatStreamResponse(
   config: BaseStreamConfig
 ): Promise<Response> {
-  const { message, model, chatId, trigger, messageId, abortSignal } = config
-
-  let modelId = `${model.providerId}:${model.id}`
+  const { message, model, chatId, trigger, messageId, abortSignal, isNewChat } =
+    config
 
   // Verify that chatId is provided
   if (!chatId) {
@@ -43,22 +47,61 @@ export async function createChatStreamResponse(
     })
   }
 
-  // Fetch chat data for authorization check and cache it
-  let initialChat = await fetchQueryWithToken(api.chat.loadChatWithMessages, {
-    chatId
-  })
+  // Skip loading chat for new chats optimization
+  let initialChat = null
+  if (!isNewChat) {
+    const loadChatStart = performance.now()
+    // Fetch chat data for authorization check and cache it
+    initialChat = await fetchQueryWithToken(api.chat.loadChatWithMessages, {
+      chatId
+    })
+    perfTime('loadChat completed', loadChatStart)
 
-  //TODO: might need to add a check to see if the chat is private and the user is not the owner
+    // Authorization check: if chat exists, it must belong to the user
+    // if (initialChat && initialChat.userId !== userId) {
+    //   return new Response('You are not allowed to access this chat', {
+    //     status: 403,
+    //     statusText: 'Forbidden'
+    //   })
+    // }
+  } else {
+    perfLog('loadChat skipped for new chat')
+  }
 
-  // Create stream context
+  // Create parent trace ID for grouping all operations
+  let parentTraceId: string | undefined
+  let langfuse: Langfuse | undefined
+
+  if (isTracingEnabled()) {
+    parentTraceId = randomUUID()
+    langfuse = new Langfuse()
+
+    // Create parent trace with name "research"
+    langfuse.trace({
+      id: parentTraceId,
+      name: 'research',
+      metadata: {
+        chatId,
+        modelId: `${model.providerId}:${model.id}`,
+        trigger
+      }
+    })
+  }
+
+  // Create stream context with trace ID
   const context: StreamContext = {
     chatId,
-    modelId,
+    modelId: `${model.providerId}:${model.id}`,
     messageId,
     trigger,
     initialChat,
-    abortSignal
+    abortSignal,
+    parentTraceId, // Add parent trace ID to context
+    isNewChat
   }
+
+  // Declare titlePromise in outer scope for onFinish access
+  let titlePromise: Promise<string> | undefined
 
   // Create the stream
   const stream = createUIMessageStream<UIMessage>({
@@ -67,16 +110,21 @@ export async function createChatStreamResponse(
         // Prepare messages for the model
         const messagesToModel = await prepareMessages(context, message)
 
-        // Get the researcher agent
+        // Get the researcher agent with parent trace ID and search mode
         const researchAgent = researcher({
           model: context.modelId,
-          supportsTools: model.toolCallType === 'native',
+          modelConfig: model,
           abortSignal,
-          writer
+          writer,
+          parentTraceId
         })
 
+        // Filter out reasoning parts from messages before converting to model messages
+        // OpenAI API requires reasoning messages to be followed by assistant messages
+        const filteredMessages = filterReasoningParts(messagesToModel)
+
         // Convert to model messages and apply context window management
-        let modelMessages = convertToModelMessages(messagesToModel)
+        let modelMessages = convertToModelMessages(filteredMessages)
 
         if (shouldTruncateMessages(modelMessages, model)) {
           const maxTokens = getMaxAllowedTokens(model)
@@ -91,51 +139,67 @@ export async function createChatStreamResponse(
         }
 
         // Start title generation in parallel if it's a new chat
-        let titlePromise: Promise<string> | undefined
         if (!initialChat && message) {
           const userContent = getTextFromParts(message.parts)
           titlePromise = generateChatTitle({
             userMessageContent: userContent,
             modelId: context.modelId,
-            abortSignal
+            abortSignal,
+            parentTraceId
           }).catch(error => {
             console.error('Error generating title:', error)
             return DEFAULT_CHAT_TITLE
           })
         }
 
+        const result = researchAgent.stream({ messages: modelMessages })
+        result.consumeStream()
         // Stream with the research agent
-        writer.merge(
-          researchAgent
-            .stream({
-              messages: modelMessages,
-              providerOptions: {
-                openai: {
-                  reasoningSummary: 'auto'
-                } as OpenAIResponsesProviderOptions
-              }
-            })
-            .toUIMessageStream({
-              onFinish: async ({ responseMessage, isAborted }) => {
-                if (isAborted || !responseMessage) return
-                await handleStreamFinish(
-                  writer,
-                  responseMessage,
-                  messagesToModel,
-                  context,
-                  titlePromise
-                )
-              }
-            })
-        )
+        writer.merge(result.toUIMessageStream())
+
+        const responseMessages = (await result.response).messages
+        // Generate related questions
+        if (responseMessages && responseMessages.length > 0) {
+          // Find the last user message
+          const lastUserMessage = [...modelMessages]
+            .reverse()
+            .find(msg => msg.role === 'user')
+          const messagesForQuestions = lastUserMessage
+            ? [lastUserMessage, ...responseMessages]
+            : responseMessages
+
+          await streamRelatedQuestions(
+            writer,
+            messagesForQuestions,
+            abortSignal,
+            parentTraceId
+          )
+        }
       } catch (error) {
         console.error('Stream execution error:', error)
         throw error // This error will be handled by the onError callback
+      } finally {
+        // Flush Langfuse traces if enabled
+        if (langfuse) {
+          await langfuse.flushAsync()
+        }
       }
     },
     onError: (error: any) => {
       // console.error('Stream error:', error)
       return error instanceof Error ? error.message : String(error)
+    },
+    onFinish: async ({ responseMessage, isAborted }) => {
+      if (isAborted || !responseMessage) return
+
+      // Persist stream results to database
+      await persistStreamResults(
+        responseMessage,
+        chatId,
+        titlePromise,
+        parentTraceId,
+        context.modelId
+      )
     }
   })
 

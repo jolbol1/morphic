@@ -94,6 +94,65 @@ function getToolNameFromType(toolName: string): string {
   return toolNameMap[toolName] || toolName
 }
 
+export const createChatWithFirstMessage = mutation({
+  args: v.object({
+    chatId: v.string(),
+    title: v.string(),
+    message: v.any()
+  }),
+  handler: async (ctx, args) => {
+    const message = args.message as UIMessage
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to create a chat')
+    }
+
+    const chatId = args.chatId ?? createId()
+    const savedChatId = await ctx.db.insert('chats', {
+      title: args.title,
+      userId,
+      visibility: 'private',
+      chatId: chatId
+    })
+
+    const messageData = {
+      id: message.id || createId(),
+      chatId: savedChatId,
+      role: args.message.role
+    }
+    const savedId = await ctx.db.insert('messages', messageData)
+
+    const parts = await ctx.db
+      .query('parts')
+      .withIndex('by_message_id', q => q.eq('messageId', savedId))
+      .collect()
+
+    parts.forEach(part => {
+      ctx.db.delete(part._id)
+    })
+
+    if (args.message.parts && args.message.parts.length > 0) {
+      // 3. Insert new parts
+      if (message.parts && message.parts.length > 0) {
+        const dbParts = mapUIMessagePartsToDBParts(
+          message.parts,
+          messageData.id
+        )
+        if (dbParts.length > 0) {
+          await Promise.all(
+            dbParts.map((part: any) => {
+              return ctx.db.insert('parts', part)
+            })
+          )
+        }
+      }
+    }
+
+    return
+  }
+})
+
 export const upsertMessage = mutation({
   args: v.object({
     chatId: v.string(),
@@ -101,8 +160,6 @@ export const upsertMessage = mutation({
     message: v.any()
   }),
   handler: async (ctx, args) => {
-    const messageId = args.id || createId()
-
     //TODO: Real validation here. But good luck with that...
     const message = args.message as UIMessage
     const chat = await ctx.db
@@ -121,7 +178,7 @@ export const upsertMessage = mutation({
     }
 
     const messageData = {
-      id: messageId,
+      id: args.id || message.id || createId(),
       chatId: chat._id,
       role: args.message.role
     }
@@ -139,7 +196,10 @@ export const upsertMessage = mutation({
     if (args.message.parts && args.message.parts.length > 0) {
       // 3. Insert new parts
       if (message.parts && message.parts.length > 0) {
-        const dbParts = mapUIMessagePartsToDBParts(message.parts, messageId)
+        const dbParts = mapUIMessagePartsToDBParts(
+          message.parts,
+          messageData.id
+        )
         if (dbParts.length > 0) {
           await Promise.all(
             dbParts.map((part: any) => {

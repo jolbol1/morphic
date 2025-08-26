@@ -9,4 +9,5 @@ export interface BaseStreamConfig {
   trigger?: 'submit-user-message' | 'regenerate-assistant-message'
   messageId?: string
   abortSignal?: AbortSignal
+  isNewChat?: boolean
 }

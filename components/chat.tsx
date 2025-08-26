@@ -19,9 +19,12 @@ import { cn } from '@/lib/utils'
 import { useFileDropzone } from '@/hooks/use-file-dropzone'
 
 import { createId } from '@paralleldrive/cuid2'
+import { useConvexAuth } from 'convex/react'
+import { AuthModal } from './auth-modal'
 import { ChatMessages } from './chat-messages'
 import { ChatPanel } from './chat-panel'
 import { DragOverlay } from './drag-overlay'
+import { ErrorModal } from './error-modal'
 
 // Define section structure
 interface ChatSection {
@@ -45,6 +48,18 @@ export function Chat({
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [input, setInput] = useState('')
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [errorModal, setErrorModal] = useState<{
+    open: boolean
+    type: 'rate-limit' | 'auth' | 'forbidden' | 'general'
+    message: string
+    details?: string
+  }>({
+    open: false,
+    type: 'general',
+    message: ''
+  })
+  const { isAuthenticated } = useConvexAuth()
 
   const {
     messages,
@@ -60,34 +75,30 @@ export function Chat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
       prepareSendMessagesRequest: ({ messages, trigger, messageId }) => {
-        switch (trigger) {
-          case 'regenerate-message':
-            // Find the message being regenerated
-            const messageToRegenerate = messages.find(m => m.id === messageId)
-            return {
-              body: {
-                trigger: 'regenerate-assistant-message',
-                chatId: id,
-                messageId,
-                // Include the message if it's a user message (for edit cases)
-                message:
-                  messageToRegenerate?.role === 'user'
-                    ? messageToRegenerate
-                    : undefined
-              }
-            }
+        // Simplify by passing AI SDK's default trigger values directly
+        const lastMessage = messages[messages.length - 1]
+        const messageToRegenerate =
+          trigger === 'regenerate-message'
+            ? messages.find(m => m.id === messageId)
+            : undefined
 
-          case 'submit-message':
-          default:
-            // Only send the last message
-            return {
-              body: {
-                trigger: 'submit-user-message',
-                chatId: id,
-                message: messages[messages.length - 1],
-                messageId
-              }
-            }
+        return {
+          body: {
+            trigger, // Use AI SDK's default trigger value directly
+            chatId: id,
+            messageId,
+            message:
+              trigger === 'regenerate-message' &&
+              messageToRegenerate?.role === 'user'
+                ? messageToRegenerate
+                : trigger === 'submit-message'
+                  ? lastMessage
+                  : undefined,
+            isNewChat:
+              trigger === 'submit-message' &&
+              messages.length === 1 &&
+              savedMessages.length === 0
+          }
         }
       }
     }),
@@ -96,7 +107,43 @@ export function Chat({
       window.dispatchEvent(new CustomEvent('chat-history-updated'))
     },
     onError: error => {
-      toast.error(`Error in chat: ${error.message}`)
+      // Handle rate limiting errors from Vercel WAF
+      // Check for status codes in error message or specific rate limit indicators
+      const errorMessage = error.message?.toLowerCase() || ''
+      const isRateLimit =
+        error.message?.includes('429') ||
+        errorMessage.includes('rate limit') ||
+        errorMessage.includes('too many requests')
+
+      if (isRateLimit) {
+        setErrorModal({
+          open: true,
+          type: 'rate-limit',
+          message: error.message,
+          details: undefined
+        })
+      } else if (
+        error.message?.includes('401') ||
+        errorMessage.includes('unauthorized')
+      ) {
+        setErrorModal({
+          open: true,
+          type: 'auth',
+          message: error.message
+        })
+      } else if (
+        error.message?.includes('403') ||
+        errorMessage.includes('forbidden')
+      ) {
+        setErrorModal({
+          open: true,
+          type: 'forbidden',
+          message: error.message
+        })
+      } else {
+        // For general errors, still use toast for less intrusive notification
+        toast.error(`Error in chat: ${error.message}`)
+      }
     },
     experimental_throttle: 100,
     generateId: createId
@@ -240,6 +287,12 @@ export function Chat({
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
+    // Check authentication before sending message
+    if (!isAuthenticated) {
+      setShowAuthModal(true)
+      return
+    }
+
     const uploaded = uploadedFiles.filter(f => f.id !== undefined)
 
     if (input.trim() || uploaded.length > 0) {
@@ -354,6 +407,27 @@ export function Chat({
         scrollContainerRef={scrollContainerRef}
       />
       <DragOverlay visible={isDragging} />
+      <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} />
+      <ErrorModal
+        open={errorModal.open}
+        onOpenChange={open => setErrorModal(prev => ({ ...prev, open }))}
+        error={errorModal}
+        onRetry={
+          errorModal.type !== 'rate-limit'
+            ? () => {
+                // Retry the last message if not rate limited
+                if (messages.length > 0) {
+                  const lastUserMessage = messages
+                    .filter(m => m.role === 'user')
+                    .pop()
+                  if (lastUserMessage) {
+                    sendMessage(lastUserMessage)
+                  }
+                }
+              }
+            : undefined
+        }
+      />
     </div>
   )
 }
