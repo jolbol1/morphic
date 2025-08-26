@@ -9,7 +9,6 @@ import {
 
 import { researcher } from '@/lib/agents/researcher'
 
-import { getChat as getChatAction } from '../actions/chat'
 import { generateChatTitle } from '../agents/title-generator'
 import {
   getMaxAllowedTokens,
@@ -18,7 +17,9 @@ import {
 } from '../utils/context-window'
 import { getTextFromParts } from '../utils/message-utils'
 
+import { api } from '@/convex/_generated/api'
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai'
+import { fetchQueryWithToken } from '../hooks/convex'
 import { handleStreamFinish } from './helpers/handle-stream-finish'
 import { prepareMessages } from './helpers/prepare-messages'
 import type { StreamContext } from './helpers/types'
@@ -30,8 +31,8 @@ const DEFAULT_CHAT_TITLE = 'Untitled'
 export async function createChatStreamResponse(
   config: BaseStreamConfig
 ): Promise<Response> {
-  const { message, model, chatId, userId, trigger, messageId, abortSignal } =
-    config
+  const { message, model, chatId, trigger, messageId, abortSignal } = config
+
   let modelId = `${model.providerId}:${model.id}`
 
   // Verify that chatId is provided
@@ -43,20 +44,15 @@ export async function createChatStreamResponse(
   }
 
   // Fetch chat data for authorization check and cache it
-  let initialChat = await getChatAction(chatId, userId)
+  let initialChat = await fetchQueryWithToken(api.chat.loadChatWithMessages, {
+    chatId
+  })
 
-  // Authorization check: if chat exists, it must belong to the user
-  if (initialChat && initialChat.userId !== userId) {
-    return new Response('You are not allowed to access this chat', {
-      status: 403,
-      statusText: 'Forbidden'
-    })
-  }
+  //TODO: might need to add a check to see if the chat is private and the user is not the owner
 
   // Create stream context
   const context: StreamContext = {
     chatId,
-    userId,
     modelId,
     messageId,
     trigger,

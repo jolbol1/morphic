@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers'
 
-import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import { createChatStreamResponse } from '@/lib/streaming/create-chat-stream-response'
 import { Model } from '@/lib/types/models'
 import { isProviderEnabled } from '@/lib/utils/registry'
@@ -42,7 +41,6 @@ export async function POST(req: Request) {
 
     const referer = req.headers.get('referer')
     const isSharePage = referer?.includes('/share/')
-    const userId = await getCurrentUserId()
 
     if (isSharePage) {
       return new Response('Chat API is not available on share pages', {
@@ -80,7 +78,6 @@ export async function POST(req: Request) {
       message,
       model: selectedModel,
       chatId,
-      userId: userId!,
       trigger,
       messageId,
       abortSignal

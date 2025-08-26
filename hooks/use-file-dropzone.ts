@@ -1,6 +1,5 @@
 import { api } from '@/convex/_generated/api'
 import { UploadedFile } from '@/lib/types'
-import { useUser } from '@clerk/nextjs'
 import { useMutation } from 'convex/react'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
@@ -23,7 +22,6 @@ export function useFileDropzone({
   const [isDragging, setIsDragging] = useState(false)
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
   const storeFile = useMutation(api.files.storeFile)
-  const { user } = useUser()
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -84,7 +82,6 @@ export function useFileDropzone({
 
             const { userFileId, url } = await storeFile({
               storageId,
-              userId: user?.id,
               chatId: chatId,
               filename: uf.file.name,
               mediaType: uf.file.type
@@ -123,7 +120,6 @@ export function useFileDropzone({
       allowedTypes,
       generateUploadUrl,
       storeFile,
-      user?.id,
       chatId
     ]
   )

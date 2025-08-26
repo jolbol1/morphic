@@ -37,3 +37,5 @@ next-env.d.ts
 
 # temporary files
 .tmp/
+# clerk configuration (can include secrets)
+/.clerk/

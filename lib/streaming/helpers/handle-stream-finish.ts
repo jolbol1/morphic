@@ -1,11 +1,10 @@
 import { UIMessage, UIMessageStreamWriter } from 'ai'
 
-import { saveMessage } from '@/lib/actions/chat'
 import { generateRelatedQuestions } from '@/lib/agents/generate-related-questions'
-import { updateChatTitle } from '@/lib/db/actions'
 import { hasToolCalls } from '@/lib/utils/message-utils'
-import { retryDatabaseOperation } from '@/lib/utils/retry'
 
+import { api } from '@/convex/_generated/api'
+import { fetchMutationWithToken } from '@/lib/hooks/convex'
 import { createId } from '@paralleldrive/cuid2'
 import type { StreamContext } from './types'
 
@@ -67,25 +66,18 @@ export async function handleStreamFinish(
   // Wait for title generation if it was started
   const chatTitle = titlePromise ? await titlePromise : undefined
 
-  // Save message with retry logic
-  saveMessage(chatId, responseMessage).catch(async error => {
-    console.error('Error saving message:', error)
-    try {
-      await retryDatabaseOperation(
-        () => saveMessage(chatId, responseMessage),
-        'save message'
-      )
-    } catch (retryError) {
-      console.error('Failed to save after retries:', retryError)
-    }
+  await fetchMutationWithToken(api.chat.upsertMessage, {
+    chatId,
+    message: responseMessage
   })
 
   console.log('[HANDLE STREAM FINISH] chatTitle', chatTitle)
   // Update title after message is saved
   if (chatTitle && chatTitle !== DEFAULT_CHAT_TITLE) {
     console.log('[HANDLE STREAM FINISH] updating title', chatTitle)
-    updateChatTitle(chatId, chatTitle).catch(error =>
-      console.error('Error updating title:', error)
-    )
+    await fetchMutationWithToken(api.chat.updateChatTitle, {
+      chatId,
+      title: chatTitle
+    })
   }
 }

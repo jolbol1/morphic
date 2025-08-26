@@ -1,12 +1,10 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { useCallback, useState, useTransition } from 'react'
 
 import { MoreHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-
-import { clearChats } from '@/lib/actions/chat-db'
 
 import {
   AlertDialog,
@@ -27,6 +25,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { SidebarGroupAction } from '@/components/ui/sidebar'
 import { Spinner } from '@/components/ui/spinner'
+import { api } from '@/convex/_generated/api'
+import { useMutation } from 'convex/react'
 
 interface ClearHistoryActionProps {
   empty: boolean
@@ -36,11 +36,12 @@ export function ClearHistoryAction({ empty }: ClearHistoryActionProps) {
   const [isPending, startTransition] = useTransition()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAlertOpen, setIsAlertOpen] = useState(false)
+  const clearHistory = useMutation(api.chat.clearChats)
   const router = useRouter()
 
   const handleClearAction = useCallback(() => {
     startTransition(async () => {
-      const res = await clearChats()
+      const res = await clearHistory({})
       if (res?.success) {
         toast.success('History cleared')
         router.push('/')

@@ -7,8 +7,6 @@ import { useCallback, useState, useTransition } from 'react'
 import { MoreHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { deleteChat } from '@/lib/actions/chat-db'
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +30,9 @@ import {
   SidebarMenuItem
 } from '@/components/ui/sidebar'
 
+import { api } from '@/convex/_generated/api'
 import { Doc } from '@/convex/_generated/dataModel'
+import { useMutation } from 'convex/react'
 import { Spinner } from '../ui/spinner'
 
 interface ChatMenuItemProps {
@@ -85,10 +85,11 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
   const [isPending, startTransition] = useTransition()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAlertOpen, setIsAlertOpen] = useState(false)
+  const deleteChat = useMutation(api.chat.deleteChat)
 
   const handleDeleteChat = useCallback(() => {
     startTransition(async () => {
-      const result = await deleteChat(chat.chatId)
+      const result = await deleteChat({ chatId: chat.chatId })
 
       if (result?.success) {
         toast.success('Chat deleted')
@@ -96,9 +97,7 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
           router.push('/')
         }
         window.dispatchEvent(new CustomEvent('chat-history-updated'))
-      } else if (result?.error) {
-        toast.error(result.error)
-      } else {
+      } else if (result?.success === false) {
         toast.error('An unexpected error occurred while deleting the chat.')
       }
       setIsAlertOpen(false)

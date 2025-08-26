@@ -5,10 +5,11 @@ import { useState, useTransition } from 'react'
 import { Share } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { shareChat } from '@/lib/actions/chat-db'
 import { useCopyToClipboard } from '@/lib/hooks/use-copy-to-clipboard'
 import { cn } from '@/lib/utils'
 
+import { api } from '@/convex/_generated/api'
+import { useMutation } from 'convex/react'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -31,13 +32,14 @@ export function ChatShare({ chatId, className }: ChatShareProps) {
   const [pending, startTransition] = useTransition()
   const { copyToClipboard } = useCopyToClipboard({ timeout: 1000 })
   const [shareUrl, setShareUrl] = useState('')
+  const shareChat = useMutation(api.chat.shareChat)
 
   const handleShare = async () => {
     startTransition(() => {
       setOpen(true)
     })
 
-    const sharedChatObject = await shareChat(chatId)
+    const sharedChatObject = await shareChat({ chatId })
     if (!sharedChatObject) {
       toast.error(
         'Failed to make chat public. You may need to be logged in or own the chat.'

@@ -1,12 +1,7 @@
 import { UIMessage } from 'ai'
 
-import {
-  createChat,
-  deleteMessagesFromIndex,
-  getChat as getChatAction,
-  saveMessage
-} from '@/lib/actions/chat'
-
+import { api } from '@/convex/_generated/api'
+import { fetchMutationWithToken, fetchQueryWithToken } from '@/lib/hooks/convex'
 import { createId } from '@paralleldrive/cuid2'
 import type { StreamContext } from './types'
 
@@ -16,11 +11,15 @@ export async function prepareMessages(
   context: StreamContext,
   message: UIMessage | null
 ): Promise<UIMessage[]> {
-  const { chatId, userId, trigger, messageId, initialChat } = context
+  const { chatId, trigger, messageId, initialChat } = context
 
   if (trigger === 'regenerate-assistant-message' && messageId) {
     // Handle regeneration
-    const currentChat = initialChat || (await getChatAction(chatId, userId))
+    const currentChat =
+      initialChat ||
+      (await fetchQueryWithToken(api.chat.loadChatWithMessages, {
+        chatId
+      }))
     if (!currentChat || !currentChat.messages.length) {
       throw new Error('No messages found')
     }
@@ -49,18 +48,32 @@ export async function prepareMessages(
 
     const targetMessage = currentChat.messages[messageIndex]
     if (targetMessage.role === 'assistant') {
-      await deleteMessagesFromIndex(chatId, messageId)
+      await fetchMutationWithToken(api.chat.deleteMessagesFromIndex, {
+        chatId,
+        messageId
+      })
       return currentChat.messages.slice(0, messageIndex)
     } else {
       // User message edit
       if (message && message.id === messageId) {
-        await saveMessage(chatId, message)
+        await fetchMutationWithToken(api.chat.upsertMessage, {
+          chatId,
+          message
+        })
       }
       const messagesToDelete = currentChat.messages.slice(messageIndex + 1)
       if (messagesToDelete.length > 0) {
-        await deleteMessagesFromIndex(chatId, messagesToDelete[0].id)
+        await fetchMutationWithToken(api.chat.deleteMessagesFromIndex, {
+          chatId,
+          messageId: messagesToDelete[0].id
+        })
       }
-      const updatedChat = await getChatAction(chatId, userId)
+      const updatedChat = await fetchQueryWithToken(
+        api.chat.loadChatWithMessages,
+        {
+          chatId
+        }
+      )
       return (
         updatedChat?.messages || currentChat.messages.slice(0, messageIndex + 1)
       )
@@ -77,11 +90,22 @@ export async function prepareMessages(
     }
 
     if (!initialChat) {
-      await createChat(chatId, DEFAULT_CHAT_TITLE)
+      await fetchMutationWithToken(api.chat.createChat, {
+        chatId,
+        title: DEFAULT_CHAT_TITLE
+      })
     }
 
-    await saveMessage(chatId, messageWithId)
-    const updatedChat = await getChatAction(chatId, userId)
+    await fetchMutationWithToken(api.chat.upsertMessage, {
+      chatId,
+      message: messageWithId
+    })
+    const updatedChat = await fetchQueryWithToken(
+      api.chat.loadChatWithMessages,
+      {
+        chatId
+      }
+    )
     return updatedChat?.messages || [messageWithId]
   }
 }

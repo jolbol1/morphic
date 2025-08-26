@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils'
 
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
-import { useUser } from '@clerk/nextjs'
 import { useMutation } from 'convex/react'
 import { useArtifact } from './artifact/artifact-context'
 import { EmptyScreen } from './empty-screen'
@@ -73,7 +72,6 @@ export function ChatPanel({
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
   const storeFile = useMutation(api.files.storeFile)
   const removeFile = useMutation(api.files.removeFile)
-  const { user } = useUser()
 
   const handleCompositionStart = () => setIsComposing(true)
 
@@ -256,7 +254,6 @@ export function ChatPanel({
                         const { storageId } = await res.json()
                         const { userFileId, url } = await storeFile({
                           storageId,
-                          userId: user?.id,
                           chatId: chatId,
                           filename: uf.file.name,
                           mediaType: uf.file.type

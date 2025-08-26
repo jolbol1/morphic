@@ -7,16 +7,22 @@ import { mutation, query, QueryCtx } from './_generated/server'
 import { buildUIMessageFromDB, mapUIMessagePartsToDBParts } from './mappings'
 
 import schema from './schema'
+import { getUserId } from './utils'
 
 export const createChat = mutation({
   args: v.object({
     title: v.string(),
     chatId: v.optional(v.string()),
-    userId: v.string(),
     visibility: v.optional(v.union(v.literal('public'), v.literal('private')))
   }),
   handler: async (ctx, args) => {
-    const { title, userId, visibility } = args
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to create a chat')
+    }
+
+    const { title, visibility } = args
     const chatId = args.chatId ?? createId()
     const id = await ctx.db.insert('chats', {
       title,
@@ -31,11 +37,11 @@ export const createChat = mutation({
 
 export const getChat = query({
   args: v.object({
-    chatId: v.string(),
-    userId: v.optional(v.string())
+    chatId: v.string()
   }),
   handler: async (ctx, args) => {
-    const { chatId, userId } = args
+    const { chatId } = args
+
     const chat = await ctx.db
       .query('chats')
       .withIndex('by_chat_id', q => q.eq('chatId', chatId))
@@ -50,7 +56,9 @@ export const getChat = query({
       return chat
     }
 
-    if (chat.visibility === 'private' && userId && chat.userId === userId) {
+    const userId = await getUserId(ctx)
+
+    if (chat.visibility === 'private' && chat.userId === userId) {
       return chat
     }
 
@@ -89,10 +97,12 @@ function getToolNameFromType(toolName: string): string {
 export const upsertMessage = mutation({
   args: v.object({
     chatId: v.string(),
-    id: v.string(),
+    id: v.optional(v.string()),
     message: v.any()
   }),
   handler: async (ctx, args) => {
+    const messageId = args.id || createId()
+
     //TODO: Real validation here. But good luck with that...
     const message = args.message as UIMessage
     const chat = await ctx.db
@@ -104,16 +114,22 @@ export const upsertMessage = mutation({
       throw new Error('Chat not found')
     }
 
+    const userId = await getUserId(ctx)
+
+    if (chat.userId !== userId) {
+      throw new Error('You must be logged in to upsert a message')
+    }
+
     const messageData = {
-      id: args.id,
+      id: messageId,
       chatId: chat._id,
       role: args.message.role
     }
-    const messageId = await ctx.db.insert('messages', messageData)
+    const savedId = await ctx.db.insert('messages', messageData)
 
     const parts = await ctx.db
       .query('parts')
-      .withIndex('by_message_id', q => q.eq('messageId', messageId))
+      .withIndex('by_message_id', q => q.eq('messageId', savedId))
       .collect()
 
     parts.forEach(part => {
@@ -123,7 +139,7 @@ export const upsertMessage = mutation({
     if (args.message.parts && args.message.parts.length > 0) {
       // 3. Insert new parts
       if (message.parts && message.parts.length > 0) {
-        const dbParts = mapUIMessagePartsToDBParts(message.parts, args.id)
+        const dbParts = mapUIMessagePartsToDBParts(message.parts, messageId)
         if (dbParts.length > 0) {
           await Promise.all(
             dbParts.map((part: any) => {
@@ -134,16 +150,21 @@ export const upsertMessage = mutation({
       }
     }
 
-    return await ctx.db.get(messageId)
+    return await ctx.db.get(savedId)
   }
 })
 
 export const deleteChat = mutation({
   args: v.object({
-    chatId: v.string(),
-    userId: v.string()
+    chatId: v.string()
   }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to delete a chat')
+    }
+
     // Could index this by chatId and userId
     const chat = await ctx.db
       .query('chats')
@@ -154,8 +175,8 @@ export const deleteChat = mutation({
       throw new Error('Chat not found')
     }
 
-    if (chat.userId !== args.userId) {
-      throw new Error('Unauthorized')
+    if (chat.userId !== userId) {
+      throw new Error('You are not authorized to delete this chat')
     }
 
     const messages = await ctx.db
@@ -191,13 +212,16 @@ export const deleteChat = mutation({
 })
 
 export const getChats = query({
-  args: v.object({
-    userId: v.string()
-  }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to view your chats')
+    }
+
     const chats = await ctx.db
       .query('chats')
-      .withIndex('by_user_id', q => q.eq('userId', args.userId))
+      .withIndex('by_user_id', q => q.eq('userId', userId))
       .collect()
     return chats
   }
@@ -205,11 +229,14 @@ export const getChats = query({
 
 export const getChatsPaginated = query({
   args: v.object({
-    paginationOpts: paginationOptsValidator,
-    userId: v.string()
+    paginationOpts: paginationOptsValidator
   }),
   handler: async (ctx, args) => {
-    const { userId } = args
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to view your chats')
+    }
 
     // Collect all chats for the user, ordered by creation time (most recent first)
     const allChats = await ctx.db
@@ -231,6 +258,12 @@ export const updateChat = mutation({
     })
   }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to update a chat')
+    }
+
     const { chatId, data } = args
     const chat = await ctx.db
       .query('chats')
@@ -239,6 +272,10 @@ export const updateChat = mutation({
 
     if (!chat) {
       throw new Error('Chat not found')
+    }
+
+    if (chat.userId !== userId) {
+      throw new Error('You are not authorized to update this chat')
     }
 
     await ctx.db.patch(chat._id, {
@@ -258,6 +295,12 @@ export const addMessage = mutation({
     parts: v.any()
   }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to add a message')
+    }
+
     const { chatId: chatIdString, id, role, parts } = args
 
     //TODO: I need to check how I am handling Ids, this seems silly.
@@ -268,6 +311,10 @@ export const addMessage = mutation({
 
     if (!chat) {
       throw new Error('Chat not found')
+    }
+
+    if (chat.userId !== userId) {
+      throw new Error('You are not authorized to add a message to this chat')
     }
 
     const attachments = Array.isArray(parts)
@@ -318,10 +365,21 @@ export const getChatMessages = query({
     chatId: v.string()
   }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
     const { chatId } = args
 
     // This is getting silly.
     const chat_id = await convertChatIdtoChat_id(ctx, chatId)
+
+    const chat = await ctx.db.get(chat_id)
+
+    if (!chat) {
+      throw new Error('Chat not found')
+    }
+
+    if (chat.userId !== userId && chat.visibility === 'private') {
+      throw new Error('You are not authorized to view this chat')
+    }
 
     const messages = await ctx.db
       .query('messages')
@@ -337,8 +395,27 @@ export const deleteMessagesByChatIdAfterTimestamp = mutation({
     timestamp: v.number()
   }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to delete messages')
+    }
+
     const { chatId, timestamp } = args
+
     const chat_id = await convertChatIdtoChat_id(ctx, chatId)
+
+    const chat = await ctx.db.get(chat_id)
+
+    if (!chat) {
+      throw new Error('Chat not found')
+    }
+
+    if (chat.userId !== userId) {
+      throw new Error(
+        'You are not authorized to delete messages from this chat'
+      )
+    }
 
     const messagesToDelete = await ctx.db
       .query('messages')
@@ -374,11 +451,13 @@ export const deleteMessagesByChatIdAfterTimestamp = mutation({
 })
 
 export const clearChats = mutation({
-  args: v.object({
-    userId: v.string()
-  }),
   handler: async (ctx, args) => {
-    const { userId } = args
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to clear chats')
+    }
+
     const userChats = await ctx.db
       .query('chats')
       .withIndex('by_user_id', q => q.eq('userId', userId))
@@ -428,16 +507,25 @@ export const clearChats = mutation({
 
 export const saveChat = mutation({
   args: v.object({
-    chat: schema.tables.chats.validator,
-    userId: v.string()
+    chat: schema.tables.chats.validator
   }),
   handler: async (ctx, args) => {
-    const { chat, userId } = args
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to save a chat')
+    }
+
+    const { chat } = args
 
     const existingChat = await ctx.db
       .query('chats')
       .withIndex('by_chat_id', q => q.eq('chatId', chat.chatId))
       .unique()
+
+    if (existingChat?.userId !== userId) {
+      throw new Error('You are not authorized to save this chat')
+    }
 
     if (existingChat) {
       await ctx.db.patch(existingChat._id, {
@@ -446,7 +534,10 @@ export const saveChat = mutation({
       })
       return await ctx.db.get(existingChat._id)
     } else {
-      const chatId = await ctx.db.insert('chats', chat)
+      const chatId = await ctx.db.insert('chats', {
+        ...chat,
+        userId
+      })
       return await ctx.db.get(chatId)
     }
   }
@@ -474,11 +565,16 @@ export const getSharedChat = query({
 
 export const shareChat = mutation({
   args: v.object({
-    chatId: v.string(),
-    userId: v.string()
+    chatId: v.string()
   }),
   handler: async (ctx, args) => {
-    const { chatId, userId } = args
+    const { chatId } = args
+
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to share a chat')
+    }
 
     const chat = await ctx.db
       .query('chats')
@@ -511,7 +607,19 @@ export const loadChat = query({
     chatId: v.string()
   }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
     const realChatId = await convertChatIdtoChat_id(ctx, args.chatId)
+
+    const chat = await ctx.db.get(realChatId)
+
+    if (!chat) {
+      throw new Error('Chat not found')
+    }
+
+    if (chat.visibility === 'private' && chat.userId !== userId) {
+      throw new Error('You are not authorized to view this chat')
+    }
 
     const messages = await ctx.db
       .query('messages')
@@ -538,11 +646,11 @@ export const loadChat = query({
 
 export const loadChatWithMessages = query({
   args: v.object({
-    chatId: v.string(),
-    userId: v.optional(v.string())
+    chatId: v.string()
   }),
   handler: async (ctx, args) => {
-    const { chatId, userId } = args
+    const userId = await getUserId(ctx)
+    const { chatId } = args
 
     const chat = await ctx.db
       .query('chats')
@@ -553,8 +661,7 @@ export const loadChatWithMessages = query({
       return null
     }
 
-    // Permission check
-    if (chat.visibility === 'private' && (!userId || chat.userId !== userId)) {
+    if (chat.visibility === 'private' && chat.userId !== userId) {
       return null
     }
 
@@ -588,9 +695,27 @@ export const deleteMessagesAfter = mutation({
     messageId: v.string()
   }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to delete messages')
+    }
+
     const { chatId, messageId } = args
 
     const realChatID = await convertChatIdtoChat_id(ctx, chatId)
+
+    const chat = await ctx.db.get(realChatID)
+
+    if (!chat) {
+      throw new Error('Chat not found')
+    }
+
+    if (chat.userId !== userId) {
+      throw new Error(
+        'You are not authorized to delete messages from this chat'
+      )
+    }
 
     const messages = await ctx.db
       .query('messages')
@@ -639,9 +764,27 @@ export const deleteMessagesFromIndex = mutation({
     messageId: v.string()
   }),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to delete messages')
+    }
+
     const { chatId, messageId } = args
 
     const realChatID = await convertChatIdtoChat_id(ctx, chatId)
+
+    const chat = await ctx.db.get(realChatID)
+
+    if (!chat) {
+      throw new Error('Chat not found')
+    }
+
+    if (chat.userId !== userId) {
+      throw new Error(
+        'You are not authorized to delete messages from this chat'
+      )
+    }
 
     const allMessages = await ctx.db
       .query('messages')
@@ -682,11 +825,16 @@ export const deleteMessagesFromIndex = mutation({
 export const updateChatVisibility = mutation({
   args: v.object({
     chatId: v.string(),
-    userId: v.string(),
     visibility: v.union(v.literal('public'), v.literal('private'))
   }),
   handler: async (ctx, args) => {
-    const { chatId, userId, visibility } = args
+    const { chatId, visibility } = args
+
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to update chat visibility')
+    }
 
     const realChatID = await convertChatIdtoChat_id(ctx, chatId)
 
@@ -715,12 +863,18 @@ export const updateChatTitle = mutation({
   handler: async (ctx, args) => {
     const { chatId, title } = args
 
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('You must be logged in to update chat title')
+    }
+
     const chat = await ctx.db
       .query('chats')
       .withIndex('by_chat_id', q => q.eq('chatId', chatId))
       .unique()
 
-    if (!chat) {
+    if (!chat || chat.userId !== userId) {
       return null
     }
 

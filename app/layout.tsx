@@ -14,7 +14,7 @@ import ArtifactRoot from '@/components/artifact/artifact-root'
 import Header from '@/components/header'
 import { ThemeProvider } from '@/components/theme-provider'
 
-import { ConvexClientProvider } from '@/components/providers/convex'
+import ConvexClientProvider from '@/components/providers/convex'
 import './globals.css'
 
 const fontSans = FontSans({
@@ -55,8 +55,8 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <ConvexClientProvider>
-      <ClerkProvider>
+    <ClerkProvider>
+      <ConvexClientProvider>
         <html lang="en" suppressHydrationWarning>
           <body
             className={cn(
@@ -84,7 +84,7 @@ export default async function RootLayout({
             </ThemeProvider>
           </body>
         </html>
-      </ClerkProvider>
-    </ConvexClientProvider>
+      </ConvexClientProvider>
+    </ClerkProvider>
   )
 }

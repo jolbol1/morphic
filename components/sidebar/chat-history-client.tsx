@@ -8,21 +8,29 @@ import {
 
 import { api } from '@/convex/_generated/api'
 import { Doc } from '@/convex/_generated/dataModel'
-import { useUser } from '@clerk/nextjs'
-import { usePaginatedQuery } from 'convex/react'
+import { useConvexAuth, usePaginatedQuery } from 'convex/react'
 import { useEffect, useRef } from 'react'
 import { ChatHistorySkeleton } from './chat-history-skeleton'
 import { ChatMenuItem } from './chat-menu-item'
 import { ClearHistoryAction } from './clear-history-action'
 
 export function ChatHistoryClient() {
-  const { user } = useUser()
+  const { isAuthenticated } = useConvexAuth()
+
+  if (!isAuthenticated) {
+    return null
+  }
+
+  return <ChatHistoryClientAuth />
+}
+
+export function ChatHistoryClientAuth() {
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
   const { results, status, loadMore } = usePaginatedQuery(
     api.chat.getChatsPaginated,
-    { userId: user?.id ?? '' },
-    { initialNumItems: 2 }
+    {},
+    { initialNumItems: 20 }
   )
 
   const isLoading = status === 'LoadingFirstPage' || status === 'LoadingMore'
@@ -40,7 +48,7 @@ export function ChatHistoryClient() {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !isLoading) {
-          loadMore(2)
+          loadMore(20)
         }
       },
       { threshold: 0.1 }

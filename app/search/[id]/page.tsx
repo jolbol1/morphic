@@ -1,12 +1,11 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
 import { UIMessage } from 'ai'
 
-import { getChat } from '@/lib/actions/chat'
-import { getCurrentUserId } from '@/lib/auth/get-current-user'
-import { getModels } from '@/lib/config/models'
-
 import { Chat } from '@/components/chat'
+import { api } from '@/convex/_generated/api'
+import { fetchQueryWithToken } from '@/lib/hooks/convex'
+import { fetchQuery } from 'convex/nextjs'
 
 export const maxDuration = 60
 
@@ -14,9 +13,10 @@ export async function generateMetadata(props: {
   params: Promise<{ id: string }>
 }) {
   const { id } = await props.params
-  const userId = await getCurrentUserId()
 
-  const chat = await getChat(id, userId)
+  const chat = await fetchQueryWithToken(api.chat.getChat, {
+    chatId: id
+  })
 
   if (!chat) {
     return { title: 'Search' }
@@ -31,20 +31,17 @@ export default async function SearchPage(props: {
   params: Promise<{ id: string }>
 }) {
   const { id } = await props.params
-  const userId = await getCurrentUserId()
 
-  const chat = await getChat(id, userId)
+  const chat = await fetchQueryWithToken(api.chat.loadChatWithMessages, {
+    chatId: id
+  })
 
   if (!chat) {
     notFound()
   }
 
-  if (chat.visibility === 'private' && !userId) {
-    redirect('/auth/login')
-  }
-
   const messages: UIMessage[] = chat.messages
 
-  const models = await getModels()
+  const models = await fetchQuery(api.models.getModelsForAPI)
   return <Chat id={id} savedMessages={messages} models={models} />
 }

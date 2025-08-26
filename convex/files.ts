@@ -1,8 +1,15 @@
 import { v } from 'convex/values'
 import { mutation } from './_generated/server'
+import { getUserId } from './utils'
 
 export const generateUploadUrl = mutation({
   handler: async ctx => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('Must be logged in to generate upload URL')
+    }
+
     return await ctx.storage.generateUploadUrl()
   }
 })
@@ -14,14 +21,15 @@ function sanitizeFilename(filename: string) {
 export const storeFile = mutation({
   args: {
     storageId: v.id('_storage'),
-    userId: v.optional(v.string()),
     chatId: v.string(),
     filename: v.string(),
     mediaType: v.string()
   },
   handler: async (ctx, args) => {
-    if (!args.userId) {
-      throw new Error('User ID is required')
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('Must be logged in to store file')
     }
 
     const sanitizedFilename = sanitizeFilename(args.filename)
@@ -34,7 +42,7 @@ export const storeFile = mutation({
 
     const userFileId = await ctx.db.insert('userFiles', {
       body: args.storageId,
-      userId: args.userId,
+      userId: userId,
       chatId: args.chatId,
       filename: sanitizedFilename,
       url: url,
@@ -50,9 +58,19 @@ export const removeFile = mutation({
     fileId: v.id('userFiles')
   },
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx)
+
+    if (!userId) {
+      throw new Error('Must be logged in to remove file')
+    }
+
     const file = await ctx.db.get(args.fileId)
     if (!file) {
       throw new Error('File not found')
+    }
+
+    if (file.userId !== userId) {
+      throw new Error('You are not authorized to remove this file')
     }
 
     await ctx.storage.delete(file.body)

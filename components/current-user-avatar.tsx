@@ -1,10 +1,10 @@
 'use client'
 
-import { useUser } from '@clerk/nextjs'
 import { User2 } from 'lucide-react'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
+import { useUser } from '@clerk/nextjs'
 import { Skeleton } from './ui/skeleton'
 
 export const CurrentUserAvatar = () => {

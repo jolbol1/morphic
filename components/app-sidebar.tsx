@@ -1,5 +1,5 @@
-import { Suspense } from 'react'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import { Plus } from 'lucide-react'
 
@@ -16,7 +16,7 @@ import {
   SidebarTrigger
 } from '@/components/ui/sidebar'
 
-import { ChatHistorySection } from './sidebar/chat-history-section'
+import { ChatHistoryClient } from './sidebar/chat-history-client'
 import { ChatHistorySkeleton } from './sidebar/chat-history-skeleton'
 import { IconLogo } from './ui/icons'
 
@@ -43,7 +43,7 @@ export default function AppSidebar() {
         </SidebarMenu>
         <div className="flex-1 overflow-y-auto">
           <Suspense fallback={<ChatHistorySkeleton />}>
-            <ChatHistorySection />
+            <ChatHistoryClient />
           </Suspense>
         </div>
       </SidebarContent>
