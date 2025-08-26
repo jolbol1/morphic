@@ -1,4 +1,5 @@
 import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
 import { UploadedFile } from '@/lib/types'
 import { useMutation } from 'convex/react'
 import { useCallback, useState } from 'react'
@@ -9,7 +10,7 @@ type UseFileDropzoneProps = {
   setUploadedFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>
   maxFiles?: number
   allowedTypes?: string[]
-  chatId: string
+  chatId: Id<'chats'>
 }
 
 export function useFileDropzone({

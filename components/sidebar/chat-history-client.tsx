@@ -82,7 +82,7 @@ export function ChatHistoryClientAuth() {
         <SidebarMenu>
           {results.map(
             (chat: Doc<'chats'>) =>
-              chat && <ChatMenuItem key={chat.chatId} chat={chat} />
+              chat && <ChatMenuItem key={chat._id} chat={chat} />
           )}
         </SidebarMenu>
         <div ref={loadMoreRef} style={{ height: '1px' }} />

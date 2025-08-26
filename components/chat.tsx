@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 
 import { useFileDropzone } from '@/hooks/use-file-dropzone'
 
+import { Id } from '@/convex/_generated/dataModel'
 import { createId } from '@paralleldrive/cuid2'
 import { useConvexAuth } from 'convex/react'
 import { AuthModal } from './auth-modal'
@@ -39,7 +40,7 @@ export function Chat({
   query,
   models
 }: {
-  id: string
+  id: Id<'chats'>
   savedMessages?: UIMessage[]
   query?: string
   models?: Model[]

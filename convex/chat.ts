@@ -1,18 +1,17 @@
 import { createId } from '@paralleldrive/cuid2'
-import { ToolCallPart, UIMessage } from 'ai'
+import { UIMessage } from 'ai'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { Id } from './_generated/dataModel'
-import { mutation, query, QueryCtx } from './_generated/server'
+import { mutation, query } from './_generated/server'
 import { buildUIMessageFromDB, mapUIMessagePartsToDBParts } from './mappings'
 
-import schema from './schema'
 import { getUserId } from './utils'
 
 export const createChat = mutation({
   args: v.object({
     title: v.string(),
-    chatId: v.optional(v.string()),
+    status: v.optional(v.union(v.literal('active'), v.literal('unused'))),
     visibility: v.optional(v.union(v.literal('public'), v.literal('private')))
   }),
   handler: async (ctx, args) => {
@@ -23,29 +22,24 @@ export const createChat = mutation({
     }
 
     const { title, visibility } = args
-    const chatId = args.chatId ?? createId()
-    const id = await ctx.db.insert('chats', {
+    const chatId = await ctx.db.insert('chats', {
       title,
       userId,
       visibility: visibility ?? 'private',
-      chatId: chatId
+      status: args.status ?? 'unused'
     })
-    const chat = await ctx.db.get(id)
-    return chat
+    return chatId
   }
 })
 
 export const getChat = query({
   args: v.object({
-    chatId: v.string()
+    chatId: v.id('chats')
   }),
   handler: async (ctx, args) => {
     const { chatId } = args
 
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
-      .first()
+    const chat = await ctx.db.get(chatId as Id<'chats'>)
 
     if (!chat) {
       return null
@@ -66,106 +60,17 @@ export const getChat = query({
   }
 })
 
-function isToolCallPart(part: any): part is ToolCallPart {
-  return (
-    part.type === 'tool-call' &&
-    typeof part.toolCallId === 'string' &&
-    typeof part.toolName === 'string' &&
-    part.args !== undefined
-  )
-}
-
-function getToolNameFromType(toolName: string): string {
-  // Map original tool names to DB column names
-  const toolNameMap: Record<string, string> = {
-    search: 'search',
-    fetch: 'fetch',
-    askQuestion: 'question',
-    question: 'question',
-    todoWrite: 'todoWrite',
-    todoRead: 'todoRead'
-  }
-
-  // For dynamic tools (MCP and others)
-  if (toolName.startsWith('mcp__') || toolName.startsWith('dynamic__')) {
-    return 'dynamic'
-  }
-
-  return toolNameMap[toolName] || toolName
-}
-
-export const createChatWithFirstMessage = mutation({
-  args: v.object({
-    chatId: v.string(),
-    title: v.string(),
-    message: v.any()
-  }),
-  handler: async (ctx, args) => {
-    const message = args.message as UIMessage
-    const userId = await getUserId(ctx)
-
-    if (!userId) {
-      throw new Error('You must be logged in to create a chat')
-    }
-
-    const chatId = args.chatId ?? createId()
-    const savedChatId = await ctx.db.insert('chats', {
-      title: args.title,
-      userId,
-      visibility: 'private',
-      chatId: chatId
-    })
-
-    const messageData = {
-      id: message.id || createId(),
-      chatId: savedChatId,
-      role: args.message.role
-    }
-    const savedId = await ctx.db.insert('messages', messageData)
-
-    const parts = await ctx.db
-      .query('parts')
-      .withIndex('by_message_id', q => q.eq('messageId', savedId))
-      .collect()
-
-    parts.forEach(part => {
-      ctx.db.delete(part._id)
-    })
-
-    if (args.message.parts && args.message.parts.length > 0) {
-      // 3. Insert new parts
-      if (message.parts && message.parts.length > 0) {
-        const dbParts = mapUIMessagePartsToDBParts(
-          message.parts,
-          messageData.id
-        )
-        if (dbParts.length > 0) {
-          await Promise.all(
-            dbParts.map((part: any) => {
-              return ctx.db.insert('parts', part)
-            })
-          )
-        }
-      }
-    }
-
-    return
-  }
-})
-
 export const upsertMessage = mutation({
   args: v.object({
-    chatId: v.string(),
+    chatId: v.id('chats'),
     id: v.optional(v.string()),
     message: v.any()
   }),
   handler: async (ctx, args) => {
     //TODO: Real validation here. But good luck with that...
     const message = args.message as UIMessage
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', args.chatId))
-      .first()
+
+    const chat = await ctx.db.get(args.chatId)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -175,6 +80,12 @@ export const upsertMessage = mutation({
 
     if (chat.userId !== userId) {
       throw new Error('You must be logged in to upsert a message')
+    }
+
+    if (chat.status === 'unused') {
+      await ctx.db.patch(chat._id, {
+        status: 'active'
+      })
     }
 
     const messageData = {
@@ -230,7 +141,7 @@ export const upsertMessage = mutation({
 
 export const deleteChat = mutation({
   args: v.object({
-    chatId: v.string()
+    chatId: v.id('chats')
   }),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx)
@@ -240,10 +151,7 @@ export const deleteChat = mutation({
     }
 
     // Could index this by chatId and userId
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', args.chatId))
-      .unique()
+    const chat = await ctx.db.get(args.chatId)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -283,7 +191,7 @@ export const deleteChat = mutation({
 
     const files = await ctx.db
       .query('userFiles')
-      .withIndex('by_chat_id', q => q.eq('chatId', chat.chatId))
+      .withIndex('by_chat_id', q => q.eq('chatId', chat._id))
       .collect()
 
     console.log('FOUND FILES WHILE DELETING : ', files)
@@ -334,7 +242,9 @@ export const getChatsPaginated = query({
     // Collect all chats for the user, ordered by creation time (most recent first)
     const allChats = await ctx.db
       .query('chats')
-      .withIndex('by_user_id', q => q.eq('userId', userId))
+      .withIndex('by_status_userId', q =>
+        q.eq('status', 'active').eq('userId', userId)
+      )
       .order('desc')
       .paginate(args.paginationOpts)
 
@@ -344,7 +254,7 @@ export const getChatsPaginated = query({
 
 export const updateChat = mutation({
   args: v.object({
-    chatId: v.string(),
+    chatId: v.id('chats'),
     data: v.object({
       title: v.optional(v.string()),
       visibility: v.optional(v.union(v.literal('public'), v.literal('private')))
@@ -358,10 +268,7 @@ export const updateChat = mutation({
     }
 
     const { chatId, data } = args
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
-      .unique()
+    const chat = await ctx.db.get(chatId)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -383,7 +290,7 @@ export const updateChat = mutation({
 export const addMessage = mutation({
   args: v.object({
     id: v.optional(v.string()),
-    chatId: v.string(),
+    chatId: v.id('chats'),
     role: v.string(),
     parts: v.any()
   }),
@@ -397,10 +304,7 @@ export const addMessage = mutation({
     const { chatId: chatIdString, id, role, parts } = args
 
     //TODO: I need to check how I am handling Ids, this seems silly.
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', chatIdString))
-      .unique()
+    const chat = await ctx.db.get(chatIdString)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -440,31 +344,15 @@ export const addMessage = mutation({
   }
 })
 
-const convertChatIdtoChat_id = async (ctx: QueryCtx, chatId: string) => {
-  const convertChatIdtoChat_id = await ctx.db
-    .query('chats')
-    .withIndex('by_chat_id', q => q.eq('chatId', chatId))
-    .unique()
-
-  if (!convertChatIdtoChat_id) {
-    throw Error(`Could not find chat with chatId ${chatId}`)
-  }
-
-  return convertChatIdtoChat_id._id
-}
-
 export const getChatMessages = query({
   args: v.object({
-    chatId: v.string()
+    chatId: v.id('chats')
   }),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx)
     const { chatId } = args
 
-    // This is getting silly.
-    const chat_id = await convertChatIdtoChat_id(ctx, chatId)
-
-    const chat = await ctx.db.get(chat_id)
+    const chat = await ctx.db.get(chatId)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -476,7 +364,7 @@ export const getChatMessages = query({
 
     const messages = await ctx.db
       .query('messages')
-      .withIndex('by_chat_id', q => q.eq('chatId', chat_id))
+      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
       .collect()
     return messages
   }
@@ -484,7 +372,7 @@ export const getChatMessages = query({
 
 export const deleteMessagesByChatIdAfterTimestamp = mutation({
   args: v.object({
-    chatId: v.string(),
+    chatId: v.id('chats'),
     timestamp: v.number()
   }),
   handler: async (ctx, args) => {
@@ -496,9 +384,7 @@ export const deleteMessagesByChatIdAfterTimestamp = mutation({
 
     const { chatId, timestamp } = args
 
-    const chat_id = await convertChatIdtoChat_id(ctx, chatId)
-
-    const chat = await ctx.db.get(chat_id)
+    const chat = await ctx.db.get(chatId)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -512,7 +398,7 @@ export const deleteMessagesByChatIdAfterTimestamp = mutation({
 
     const messagesToDelete = await ctx.db
       .query('messages')
-      .withIndex('by_chat_id', q => q.eq('chatId', chat_id))
+      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
       .filter(q => q.gte(q.field('_creationTime'), timestamp))
       .collect()
 
@@ -611,55 +497,14 @@ export const clearChats = mutation({
   }
 })
 
-export const saveChat = mutation({
-  args: v.object({
-    chat: schema.tables.chats.validator
-  }),
-  handler: async (ctx, args) => {
-    const userId = await getUserId(ctx)
-
-    if (!userId) {
-      throw new Error('You must be logged in to save a chat')
-    }
-
-    const { chat } = args
-
-    const existingChat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', chat.chatId))
-      .unique()
-
-    if (existingChat?.userId !== userId) {
-      throw new Error('You are not authorized to save this chat')
-    }
-
-    if (existingChat) {
-      await ctx.db.patch(existingChat._id, {
-        title: chat.title,
-        visibility: chat.visibility
-      })
-      return await ctx.db.get(existingChat._id)
-    } else {
-      const chatId = await ctx.db.insert('chats', {
-        ...chat,
-        userId
-      })
-      return await ctx.db.get(chatId)
-    }
-  }
-})
-
 export const getSharedChat = query({
   args: v.object({
-    chatId: v.string()
+    chatId: v.id('chats')
   }),
   handler: async (ctx, args) => {
     const { chatId } = args
 
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
-      .unique()
+    const chat = await ctx.db.get(chatId)
 
     if (!chat || chat.visibility !== 'public') {
       return null
@@ -671,7 +516,7 @@ export const getSharedChat = query({
 
 export const shareChat = mutation({
   args: v.object({
-    chatId: v.string()
+    chatId: v.id('chats')
   }),
   handler: async (ctx, args) => {
     const { chatId } = args
@@ -682,10 +527,7 @@ export const shareChat = mutation({
       throw new Error('You must be logged in to share a chat')
     }
 
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
-      .unique()
+    const chat = await ctx.db.get(chatId)
 
     if (!chat || chat.userId !== userId) {
       return null
@@ -710,14 +552,12 @@ export const shareChat = mutation({
 
 export const loadChat = query({
   args: v.object({
-    chatId: v.string()
+    chatId: v.id('chats')
   }),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx)
 
-    const realChatId = await convertChatIdtoChat_id(ctx, args.chatId)
-
-    const chat = await ctx.db.get(realChatId)
+    const chat = await ctx.db.get(args.chatId)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -729,7 +569,7 @@ export const loadChat = query({
 
     const messages = await ctx.db
       .query('messages')
-      .withIndex('by_chat_id', q => q.eq('chatId', realChatId))
+      .withIndex('by_chat_id', q => q.eq('chatId', args.chatId))
       .order('asc')
       .collect()
 
@@ -752,16 +592,13 @@ export const loadChat = query({
 
 export const loadChatWithMessages = query({
   args: v.object({
-    chatId: v.string()
+    chatId: v.id('chats')
   }),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx)
     const { chatId } = args
 
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
-      .unique()
+    const chat = await ctx.db.get(chatId as Id<'chats'>)
 
     if (!chat) {
       return null
@@ -797,7 +634,7 @@ export const loadChatWithMessages = query({
 
 export const deleteMessagesAfter = mutation({
   args: v.object({
-    chatId: v.string(),
+    chatId: v.id('chats'),
     messageId: v.string()
   }),
   handler: async (ctx, args) => {
@@ -809,9 +646,7 @@ export const deleteMessagesAfter = mutation({
 
     const { chatId, messageId } = args
 
-    const realChatID = await convertChatIdtoChat_id(ctx, chatId)
-
-    const chat = await ctx.db.get(realChatID)
+    const chat = await ctx.db.get(chatId)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -825,7 +660,7 @@ export const deleteMessagesAfter = mutation({
 
     const messages = await ctx.db
       .query('messages')
-      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
       .collect()
 
     const targetMessage = messages.find(m => m.id === messageId)
@@ -836,7 +671,7 @@ export const deleteMessagesAfter = mutation({
 
     const messagesToDelete = await ctx.db
       .query('messages')
-      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
       .filter(q => q.gte(q.field('_creationTime'), targetMessage._creationTime))
       .collect()
 
@@ -866,7 +701,7 @@ export const deleteMessagesAfter = mutation({
 
 export const deleteMessagesFromIndex = mutation({
   args: v.object({
-    chatId: v.string(),
+    chatId: v.id('chats'),
     messageId: v.string()
   }),
   handler: async (ctx, args) => {
@@ -878,9 +713,7 @@ export const deleteMessagesFromIndex = mutation({
 
     const { chatId, messageId } = args
 
-    const realChatID = await convertChatIdtoChat_id(ctx, chatId)
-
-    const chat = await ctx.db.get(realChatID)
+    const chat = await ctx.db.get(chatId)
 
     if (!chat) {
       throw new Error('Chat not found')
@@ -894,7 +727,7 @@ export const deleteMessagesFromIndex = mutation({
 
     const allMessages = await ctx.db
       .query('messages')
-      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
+      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
       .collect()
 
     console.log('ALL MESSAGES: ', JSON.stringify(allMessages, null, 2))
@@ -938,7 +771,7 @@ export const deleteMessagesFromIndex = mutation({
 
 export const updateChatVisibility = mutation({
   args: v.object({
-    chatId: v.string(),
+    chatId: v.id('chats'),
     visibility: v.union(v.literal('public'), v.literal('private'))
   }),
   handler: async (ctx, args) => {
@@ -950,12 +783,7 @@ export const updateChatVisibility = mutation({
       throw new Error('You must be logged in to update chat visibility')
     }
 
-    const realChatID = await convertChatIdtoChat_id(ctx, chatId)
-
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', realChatID))
-      .unique()
+    const chat = await ctx.db.get(chatId)
 
     if (!chat || chat.userId !== userId) {
       return null
@@ -971,7 +799,7 @@ export const updateChatVisibility = mutation({
 
 export const updateChatTitle = mutation({
   args: v.object({
-    chatId: v.string(),
+    chatId: v.id('chats'),
     title: v.string()
   }),
   handler: async (ctx, args) => {
@@ -983,10 +811,7 @@ export const updateChatTitle = mutation({
       throw new Error('You must be logged in to update chat title')
     }
 
-    const chat = await ctx.db
-      .query('chats')
-      .withIndex('by_chat_id', q => q.eq('chatId', chatId))
-      .unique()
+    const chat = await ctx.db.get(chatId)
 
     if (!chat || chat.userId !== userId) {
       return null

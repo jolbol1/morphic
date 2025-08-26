@@ -1,17 +1,12 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-export const persistableMessage = v.object({
-  id: v.string(),
-  chatId: v.optional(v.string())
-})
-
 export default defineSchema({
   // User files table - stores user files
   userFiles: defineTable({
     body: v.id('_storage'),
     userId: v.string(),
-    chatId: v.string(),
+    chatId: v.id('chats'),
     filename: v.string(),
     url: v.string(),
     mediaType: v.string()
@@ -23,11 +18,13 @@ export default defineSchema({
   chats: defineTable({
     title: v.string(),
     userId: v.string(),
-    chatId: v.string(),
-    visibility: v.union(v.literal('public'), v.literal('private'))
+    visibility: v.union(v.literal('public'), v.literal('private')),
+    // I hate that I need this at the moment. Look for a better solution.
+    status: v.union(v.literal('active'), v.literal('unused'))
   })
     .index('by_user_id', ['userId'])
-    .index('by_chat_id', ['chatId']),
+    .index('by_status_userId', ['status', 'userId'])
+    .searchIndex('title', { searchField: 'title', filterFields: ['userId'] }),
 
   // Messages table - stores individual messages within chats
   messages: defineTable({

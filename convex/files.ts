@@ -21,7 +21,7 @@ function sanitizeFilename(filename: string) {
 export const storeFile = mutation({
   args: {
     storageId: v.id('_storage'),
-    chatId: v.string(),
+    chatId: v.id('chats'),
     filename: v.string(),
     mediaType: v.string()
   },

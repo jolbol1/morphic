@@ -43,5 +43,5 @@ export default async function SearchPage(props: {
   const messages: UIMessage[] = chat.messages
 
   const models = await fetchQuery(api.models.getModelsForAPI)
-  return <Chat id={id} savedMessages={messages} models={models} />
+  return <Chat id={chat._id} savedMessages={messages} models={models} />
 }

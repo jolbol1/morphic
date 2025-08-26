@@ -79,7 +79,7 @@ const formatDateWithTime = (date: Date | string | number) => {
 
 export function ChatMenuItem({ chat }: ChatMenuItemProps) {
   const pathname = usePathname()
-  const path = `/search/${chat.chatId}`
+  const path = `/search/${chat._id}`
   const isActive = pathname === path
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -89,7 +89,7 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
 
   const handleDeleteChat = useCallback(() => {
     startTransition(async () => {
-      const result = await deleteChat({ chatId: chat.chatId })
+      const result = await deleteChat({ chatId: chat._id })
 
       if (result?.success) {
         toast.success('Chat deleted')
@@ -103,7 +103,7 @@ export function ChatMenuItem({ chat }: ChatMenuItemProps) {
       setIsAlertOpen(false)
       setIsMenuOpen(false)
     })
-  }, [chat.chatId, isActive, router, startTransition])
+  }, [chat._id, deleteChat, isActive, router])
 
   const handleAlertOpenChange = useCallback(
     (open: boolean) => {

@@ -7,8 +7,6 @@ import { fetchMutationWithToken, fetchQueryWithToken } from '@/lib/hooks/convex'
 import { createId } from '@paralleldrive/cuid2'
 import type { StreamContext } from './types'
 
-const DEFAULT_CHAT_TITLE = 'Untitled'
-
 export async function prepareMessages(
   context: StreamContext,
   message: UIMessage | null
@@ -94,29 +92,27 @@ export async function prepareMessages(
       id: message.id || createId()
     }
 
-    // Optimize for new chats: create chat and save message together
-    if (isNewChat) {
-      // Use createChatWithFirstMessage for atomic operation
-      const createStart = performance.now()
-      await fetchMutationWithToken(api.chat.createChatWithFirstMessage, {
-        chatId,
-        message: messageWithId,
-        title: DEFAULT_CHAT_TITLE
-      })
-      perfTime('createChatWithFirstMessage completed', createStart)
-      perfTime('prepareMessages - Total', startTime)
-      return [messageWithId]
-    }
+    // // Optimize for new chats: create chat and save message together
+    // if (isNewChat) {
+    //   // Use createChatWithFirstMessage for atomic operation
+    //   const createStart = performance.now()
+    //   await fetchMutationWithToken(api.chat.createChatWithFirstMessage, {
+    //     message: messageWithId,
+    //     title: DEFAULT_CHAT_TITLE
+    //   })
+    //   perfTime('createChatWithFirstMessage completed', createStart)
+    //   perfTime('prepareMessages - Total', startTime)
+    //   return [messageWithId]
+    // }
 
     // For existing chats
-    if (!initialChat) {
-      const createStart = performance.now()
-      await fetchMutationWithToken(api.chat.createChat, {
-        chatId,
-        title: DEFAULT_CHAT_TITLE
-      })
-      perfTime('createChat completed', createStart)
-    }
+    // if (!initialChat) {
+    //   const createStart = performance.now()
+    //   await fetchMutationWithToken(api.chat.createChat, {
+    //     title: DEFAULT_CHAT_TITLE
+    //   })
+    //   perfTime('createChat completed', createStart)
+    // }
 
     const upsertStart = performance.now()
     await fetchMutationWithToken(api.chat.upsertMessage, {

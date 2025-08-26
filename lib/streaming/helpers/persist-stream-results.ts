@@ -1,6 +1,7 @@
 import { UIMessage } from 'ai'
 
 import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
 import { fetchMutationWithToken } from '@/lib/hooks/convex'
 import { perfTime } from '@/lib/utils/perf-logging'
 import { retryDatabaseOperation } from '@/lib/utils/retry'
@@ -9,7 +10,7 @@ const DEFAULT_CHAT_TITLE = 'Untitled'
 
 export async function persistStreamResults(
   responseMessage: UIMessage,
-  chatId: string,
+  chatId: Id<'chats'>,
   titlePromise?: Promise<string>,
   parentTraceId?: string,
   modelId?: string
