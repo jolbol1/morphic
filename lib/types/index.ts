@@ -1,3 +1,5 @@
+import { Id } from '@/convex/_generated/dataModel'
+
 export type SearchResults = {
   images: SearchResultImage[]
   results: SearchResultItem[]
@@ -90,8 +92,6 @@ export type SearXNGSearchResults = {
 
 export type UploadedFile = {
   file: File
-  status: 'uploading' | 'uploaded' | 'error'
+  id?: Id<'userFiles'>
   url?: string
-  name?: string
-  key?: string
 }

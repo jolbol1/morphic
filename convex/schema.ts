@@ -14,8 +14,7 @@ export default defineSchema({
     chatId: v.string(),
     filename: v.string(),
     url: v.string(),
-    mediaType: v.string(),
-    type: v.string()
+    mediaType: v.string()
   })
     .index('by_user_id', ['userId'])
     .index('by_chat_id', ['chatId']),

@@ -240,7 +240,7 @@ export function Chat({
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    const uploaded = uploadedFiles.filter(f => f.status === 'uploaded')
+    const uploaded = uploadedFiles.filter(f => f.id !== undefined)
 
     if (input.trim() || uploaded.length > 0) {
       const parts: any[] = []
@@ -253,7 +253,7 @@ export function Chat({
         parts.push({
           type: 'file',
           url: f.url!,
-          filename: f.name!,
+          filename: f.file.name,
           mediaType: f.file.type
         })
       })

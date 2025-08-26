@@ -14,6 +14,7 @@ import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 
 import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
 import { useUser } from '@clerk/nextjs'
 import { useMutation } from 'convex/react'
 import { useArtifact } from './artifact/artifact-context'
@@ -70,7 +71,8 @@ export function ChatPanel({
   const { close: closeArtifact } = useArtifact()
   const isLoading = status === 'submitted' || status === 'streaming'
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
-  const storeImage = useMutation(api.files.storeImage)
+  const storeFile = useMutation(api.files.storeFile)
+  const removeFile = useMutation(api.files.removeFile)
   const { user } = useUser()
 
   const handleCompositionStart = () => setIsComposing(true)
@@ -120,10 +122,11 @@ export function ChatPanel({
   }, [query])
 
   const handleFileRemove = useCallback(
-    (index: number) => {
-      setUploadedFiles(prev => prev.filter((_, i) => i !== index))
+    (fileId: Id<'userFiles'>) => {
+      setUploadedFiles(prev => prev.filter(f => f.id !== fileId))
+      removeFile({ fileId })
     },
-    [setUploadedFiles]
+    [setUploadedFiles, removeFile]
   )
   // Scroll to the bottom of the container
   const handleScrollToBottom = () => {
@@ -251,16 +254,15 @@ export function ChatPanel({
                         }
 
                         const { storageId } = await res.json()
-                        const userFile = await storeImage({
+                        const { userFileId, url } = await storeFile({
                           storageId,
                           userId: user?.id,
                           chatId: chatId,
                           filename: uf.file.name,
-                          mediaType: uf.file.type,
-                          type: 'image'
+                          mediaType: uf.file.type
                         })
 
-                        if (!userFile) {
+                        if (!userFileId) {
                           throw new Error('Failed to store image')
                         }
 
@@ -269,10 +271,8 @@ export function ChatPanel({
                             f.file === uf.file
                               ? {
                                   ...f,
-                                  status: 'uploaded',
-                                  url: userFile.url,
-                                  name: userFile.filename,
-                                  key: userFile.filename
+                                  id: userFileId,
+                                  url
                                 }
                               : f
                           )

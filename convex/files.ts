@@ -11,14 +11,13 @@ function sanitizeFilename(filename: string) {
   return filename.replace(/[^a-z0-9.\-_]/gi, '_').toLowerCase()
 }
 
-export const storeImage = mutation({
+export const storeFile = mutation({
   args: {
     storageId: v.id('_storage'),
     userId: v.optional(v.string()),
     chatId: v.string(),
     filename: v.string(),
-    mediaType: v.string(),
-    type: v.string()
+    mediaType: v.string()
   },
   handler: async (ctx, args) => {
     if (!args.userId) {
@@ -39,10 +38,26 @@ export const storeImage = mutation({
       chatId: args.chatId,
       filename: sanitizedFilename,
       url: url,
-      mediaType: args.mediaType,
-      type: args.type
+      mediaType: args.mediaType
     })
 
-    return await ctx.db.get(userFileId)
+    return { userFileId, url }
+  }
+})
+
+export const removeFile = mutation({
+  args: {
+    fileId: v.id('userFiles')
+  },
+  handler: async (ctx, args) => {
+    const file = await ctx.db.get(args.fileId)
+    if (!file) {
+      throw new Error('File not found')
+    }
+
+    await ctx.storage.delete(file.body)
+    await ctx.db.delete(args.fileId)
+
+    return true
   }
 })

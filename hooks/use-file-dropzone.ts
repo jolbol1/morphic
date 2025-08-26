@@ -22,7 +22,7 @@ export function useFileDropzone({
 }: UseFileDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false)
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
-  const storeImage = useMutation(api.files.storeImage)
+  const storeFile = useMutation(api.files.storeFile)
   const { user } = useUser()
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -60,8 +60,7 @@ export function useFileDropzone({
       }
 
       const initialFiles: UploadedFile[] = allowed.map(file => ({
-        file,
-        status: 'uploading'
+        file
       }))
 
       setUploadedFiles(prev => [...prev, ...initialFiles].slice(0, maxFiles))
@@ -73,7 +72,7 @@ export function useFileDropzone({
 
             const res = await fetch(postUrl, {
               method: 'POST',
-              headers: { 'Content-Type': uf!.file.type },
+              headers: { 'Content-Type': uf.file.type },
               body: uf.file
             })
 
@@ -82,16 +81,16 @@ export function useFileDropzone({
             }
 
             const { storageId } = await res.json()
-            const userFile = await storeImage({
+
+            const { userFileId, url } = await storeFile({
               storageId,
               userId: user?.id,
               chatId: chatId,
               filename: uf.file.name,
-              mediaType: uf.file.type,
-              type: 'image'
+              mediaType: uf.file.type
             })
 
-            if (!userFile) {
+            if (!userFileId) {
               throw new Error('Failed to store image')
             }
 
@@ -100,10 +99,8 @@ export function useFileDropzone({
                 f.file === uf.file
                   ? {
                       ...f,
-                      status: 'uploaded',
-                      url: userFile.url,
-                      name: userFile.filename,
-                      key: userFile.filename
+                      id: userFileId,
+                      url
                     }
                   : f
               )
@@ -125,7 +122,7 @@ export function useFileDropzone({
       setUploadedFiles,
       allowedTypes,
       generateUploadUrl,
-      storeImage,
+      storeFile,
       user?.id,
       chatId
     ]
