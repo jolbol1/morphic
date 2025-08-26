@@ -205,6 +205,25 @@ export const deleteChat = mutation({
       })
     )
 
+    console.log('CHAT ID: ', chat._id)
+
+    const files = await ctx.db
+      .query('userFiles')
+      .withIndex('by_chat_id', q => q.eq('chatId', chat.chatId))
+      .collect()
+
+    console.log('FOUND FILES WHILE DELETING : ', files)
+
+    const fileIds = files.map(file => file._id)
+
+    const storageIds = files.map(file => file.body)
+
+    await Promise.all(
+      storageIds.map(storageId => ctx.storage.delete(storageId))
+    )
+
+    await Promise.all(fileIds.map(fileId => ctx.db.delete(fileId)))
+
     await ctx.db.delete(chat._id)
 
     return { success: true }
@@ -494,6 +513,19 @@ export const clearChats = mutation({
     )
 
     const partIds = partsToDelete.flatMap(part => part.map(part => part._id))
+
+    const fileIds = await ctx.db
+      .query('userFiles')
+      .withIndex('by_user_id', q => q.eq('userId', userId))
+      .collect()
+
+    const storageIds = fileIds.map(file => file.body)
+
+    await Promise.all(
+      storageIds.map(storageId => ctx.storage.delete(storageId))
+    )
+
+    await Promise.all(fileIds.map(fileId => ctx.db.delete(fileId._id)))
 
     await Promise.all(partIds.map(partId => ctx.db.delete(partId)))
 
