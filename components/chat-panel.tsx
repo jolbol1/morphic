@@ -28,7 +28,7 @@ import { UploadedFileList } from './uploaded-file-list'
 const INPUT_UPDATE_DELAY_MS = 10 // Delay to ensure input value is updated before form submission
 
 interface ChatPanelProps {
-  chatId: string
+  chatId: Id<'chats'>
   input: string
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void

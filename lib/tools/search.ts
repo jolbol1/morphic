@@ -159,7 +159,7 @@ export async function search(
   searchDepth: 'basic' | 'advanced' = 'basic',
   includeDomains: string[] = [],
   excludeDomains: string[] = []
-): Promise<SearchResults> {
+): Promise<SearchResults | AsyncIterable<SearchResults>> {
   return (
     searchTool.execute?.(
       {
@@ -176,6 +176,11 @@ export async function search(
         messages: []
       }
     ) ??
-    Promise.resolve({ results: [], images: [], query, number_of_results: 0 })
+    (Promise.resolve({
+      results: [],
+      images: [],
+      query,
+      number_of_results: 0
+    }) as Promise<SearchResults>)
   )
 }

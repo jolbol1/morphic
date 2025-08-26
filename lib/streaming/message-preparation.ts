@@ -1,11 +1,7 @@
 import { api } from '@/convex/_generated/api'
-import { Doc } from '@/convex/_generated/dataModel'
-import { createId } from '@paralleldrive/cuid2'
+import { Id } from '@/convex/_generated/dataModel'
 import type { UIMessage } from 'ai'
 import { fetchMutationWithToken, fetchQueryWithToken } from '../hooks/convex'
-
-// Constants
-const DEFAULT_CHAT_TITLE = 'New Chat'
 
 /**
  * Prepares messages for regeneration by handling message deletion and retrieval
@@ -16,7 +12,7 @@ const DEFAULT_CHAT_TITLE = 'New Chat'
  * @returns Array of UIMessages to send to the model
  */
 export async function prepareMessagesForRegeneration(
-  chatId: string,
+  chatId: Id<'chats'>,
   userId: string,
   messageId: string,
   message: UIMessage | null
@@ -72,48 +68,4 @@ export async function prepareMessagesForRegeneration(
       return currentChat.messages.slice(0, messageIndex + 1)
     }
   }
-}
-
-/**
- * Prepares messages for normal submission by saving the new message
- * @param chatId The chat ID
- * @param userId The user ID for authorization
- * @param message The message to submit
- * @param chat The existing chat (if any)
- * @returns Array of UIMessages to send to the model
- */
-export async function prepareMessagesForSubmission(
-  chatId: string,
-  userId: string,
-  message: UIMessage,
-  chat: Doc<'chats'> | null
-): Promise<UIMessage[]> {
-  if (!message) {
-    throw new Error('No message provided')
-  }
-
-  // Save the message
-  const messageWithId = {
-    ...message,
-    id: message.id || createId()
-  }
-
-  // If chat doesn't exist, create it with a temporary title
-  if (!chat) {
-    await fetchMutationWithToken(api.chat.createChat, {
-      chatId,
-      title: DEFAULT_CHAT_TITLE
-    })
-  }
-
-  await fetchMutationWithToken(api.chat.upsertMessage, {
-    chatId,
-    message: messageWithId
-  })
-
-  // Get all messages including the one just saved
-  const updatedChat = await fetchQueryWithToken(api.chat.loadChatWithMessages, {
-    chatId
-  })
-  return updatedChat?.messages || [messageWithId]
 }

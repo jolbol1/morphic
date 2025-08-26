@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import type { UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
 import { cn } from '@/lib/utils'
 
+import { Id } from '@/convex/_generated/dataModel'
 import { ChatShare } from './chat-share'
 import { RetryButton } from './retry-button'
 import { Button } from './ui/button'
@@ -15,7 +16,7 @@ interface MessageActionsProps {
   message: string
   messageId: string
   reload?: () => Promise<void | string | null | undefined>
-  chatId?: string
+  chatId?: Id<'chats'>
   enableShare?: boolean
   className?: string
   status?: UseChatHelpers<UIMessage<unknown, UIDataTypes, UITools>>['status']

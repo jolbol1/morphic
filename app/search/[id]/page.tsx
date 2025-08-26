@@ -4,6 +4,7 @@ import { UIMessage } from 'ai'
 
 import { Chat } from '@/components/chat'
 import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
 import { fetchQueryWithToken } from '@/lib/hooks/convex'
 import { fetchQuery } from 'convex/nextjs'
 
@@ -15,7 +16,7 @@ export async function generateMetadata(props: {
   const { id } = await props.params
 
   const chat = await fetchQueryWithToken(api.chat.getChat, {
-    chatId: id
+    chatId: id as Id<'chats'>
   })
 
   if (!chat) {
@@ -33,7 +34,7 @@ export default async function SearchPage(props: {
   const { id } = await props.params
 
   const chat = await fetchQueryWithToken(api.chat.loadChatWithMessages, {
-    chatId: id
+    chatId: id as Id<'chats'>
   })
 
   if (!chat) {

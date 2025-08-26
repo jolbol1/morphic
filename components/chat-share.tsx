@@ -9,6 +9,7 @@ import { useCopyToClipboard } from '@/lib/hooks/use-copy-to-clipboard'
 import { cn } from '@/lib/utils'
 
 import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
 import { useMutation } from 'convex/react'
 import { Button } from './ui/button'
 import {
@@ -23,7 +24,7 @@ import {
 import { Spinner } from './ui/spinner'
 
 interface ChatShareProps {
-  chatId: string
+  chatId: Id<'chats'>
   className?: string
 }
 
@@ -48,7 +49,7 @@ export function ChatShare({ chatId, className }: ChatShareProps) {
     }
 
     const url = new URL(
-      `/search/${sharedChatObject.chatId}`,
+      `/search/${sharedChatObject._id}`,
       window.location.origin
     )
     setShareUrl(url.toString())

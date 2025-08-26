@@ -9,6 +9,7 @@ import type {
 import type { DynamicToolPart } from '@/lib/types/dynamic-tools'
 import { extractCitationMaps } from '@/lib/utils/citation'
 
+import { Id } from '@/convex/_generated/dataModel'
 import { AnswerSection } from './answer-section'
 import { DataSection } from './data-section'
 import { DynamicToolDisplay } from './dynamic-tool-display'
@@ -23,7 +24,7 @@ interface RenderMessageProps {
   getIsOpen: (id: string, partType?: string, hasNextPart?: boolean) => boolean
   onOpenChange: (id: string, open: boolean) => void
   onQuerySelect: (query: string) => void
-  chatId?: string
+  chatId?: Id<'chats'>
   status?: UseChatHelpers<UIMessage<unknown, UIDataTypes, UITools>>['status']
   addToolResult?: (params: { toolCallId: string; result: any }) => void
   onUpdateMessage?: (messageId: string, newContent: string) => Promise<void>

@@ -7,10 +7,10 @@ import { UseChatHelpers } from '@ai-sdk/react'
 import type { UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
 import { cn } from '@/lib/utils'
 
-import { AnimatedLogo } from './ui/animated-logo'
+import { Id } from '@/convex/_generated/dataModel'
 import { ChatError } from './chat-error'
-import { DefaultSkeleton } from './default-skeleton'
 import { RenderMessage } from './render-message'
+import { AnimatedLogo } from './ui/animated-logo'
 
 // Import section structure interface
 interface ChatSection {
@@ -23,7 +23,7 @@ interface ChatMessagesProps {
   sections: ChatSection[] // Changed from messages to sections
   onQuerySelect: (query: string) => void
   status: UseChatHelpers<UIMessage<unknown, UIDataTypes, UITools>>['status']
-  chatId?: string
+  chatId?: Id<'chats'>
   addToolResult?: (params: { toolCallId: string; result: any }) => void
   /** Ref for the scroll container */
   scrollContainerRef: React.RefObject<HTMLDivElement>

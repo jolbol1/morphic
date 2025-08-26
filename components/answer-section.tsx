@@ -11,6 +11,7 @@ import type {
   UITools
 } from '@/lib/types/ai'
 
+import { Id } from '@/convex/_generated/dataModel'
 import { CollapsibleMessage } from './collapsible-message'
 import { MarkdownMessage } from './message'
 import { MessageActions } from './message-actions'
@@ -19,7 +20,7 @@ export type AnswerSectionProps = {
   content: string
   isOpen: boolean
   onOpenChange: (open: boolean) => void
-  chatId?: string
+  chatId?: Id<'chats'>
   showActions?: boolean
   messageId: string
   metadata?: UIMessageMetadata
@@ -68,8 +69,6 @@ export function AnswerSection({
           <MessageActions
             message={content} // Keep original message content for copy
             messageId={messageId}
-            traceId={metadata?.traceId}
-            feedbackScore={metadata?.feedbackScore}
             chatId={chatId}
             enableShare={enableShare}
             reload={handleReload}
