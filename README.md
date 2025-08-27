@@ -2,7 +2,7 @@
 
 ## 🔄 Migration Status
 
-This application is currently undergoing a partial migration to [Convex](https://convex.dev/) to replace the existing Drizzle/Neon database stack. I migrated Supabase auth to Clerk, but need to handle the auth properly on Convex still, instead of using userId.
+This application is currently undergoing a partial migration to [Convex](https://convex.dev/) to replace the existing Drizzle/Neon database stack. I migrated Supabase auth to Clerk as well.
 
 **Current Architecture:**
 
@@ -12,9 +12,8 @@ This application is currently undergoing a partial migration to [Convex](https:/
 
 - ✅ Backend data layer migrated to Convex
 - ✅ Authentication migrated from Supabase to Clerk
-- ⏳ Frontend integration pending
-- ⚠️ Auth integration with Convex needs proper implementation (currently using userId)
-- 🎯 Future: Remove Next.js server entirely and connect frontend directly to Convex
+- ✅ Next.js server logic migrated (except AI SDK calls)
+- ⏳ Frontend chat integration with Convex pending (replacing useChat hook)
 
 This hybrid approach maintains functionality while transitioning to a more streamlined architecture.
 
